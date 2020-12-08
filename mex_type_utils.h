@@ -236,15 +236,33 @@ namespace mxTypes {
     typename std::enable_if_t<is_container_v<Cont>, mxArray*>
     FieldToMatlab(const Cont& data_, Fs... fields)
     {
+        mxArray* temp;
         using V = typename Cont::value_type;
         using U = decltype(getFieldWrapper(std::declval<V>(), fields...));
 
-        mxArray* temp;
-        auto storage = static_cast<U*>(mxGetData(temp = mxCreateUninitNumericMatrix(1, static_cast<mwSize>(data_.size()), typeToMxClass_v<U>, mxREAL)));
+        if constexpr (typeNeedsMxCellStorage_v<U>)
+        {
+            // output cell array
+            temp = mxCreateCellMatrix(static_cast<mwSize>(data_.size()), 1);
+            mwIndex i = 0;
+            for (auto&& item : data_)
+                mxSetCell(temp, i++, ToMatlab(getFieldWrapper(item, fields...)));
+        }
+        else if constexpr (typeToMxClass_v<U> != mxSTRUCT_CLASS)
+        {
+            // output array
+            auto storage = static_cast<U*>(mxGetData(temp = mxCreateUninitNumericMatrix(static_cast<mwSize>(data_.size()), 1, typeToMxClass_v<U>, mxREAL)));
 
-        size_t i = 0;
-        for (auto &samp : data_)
-            storage[i++] = getFieldWrapper(samp, fields...);
+            if (data_.size())
+            {
+                for (auto&& item : data_)
+                    (*storage++) = getFieldWrapper(item, fields...);
+            }
+        }
+        else // NB: if constexpr (typeToMxClass_v<U> == mxSTRUCT_CLASS)
+        {
+            static_assert(always_false<Cont>, "Shouldn't happen, check you didn't override typeToMxClass for this type");   // or is this a TODO implement? Analyze situation when i encounter it
+        }
 
         return temp;
     }
