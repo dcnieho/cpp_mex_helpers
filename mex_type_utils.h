@@ -105,14 +105,11 @@ namespace mxTypes {
             else
             {
                 // non-contiguous storage, copy one at a time
-                if (data_.size())
-                {
-                    for (auto&& item : data_)
-                        (*storage++) = item;
-                }
+                for (auto&& item : data_)
+                    (*storage++) = item;
             }
         }
-        else if constexpr (typeToMxClass_v<V> == mxSTRUCT_CLASS)
+        else // NB: if constexpr (typeToMxClass_v<V> == mxSTRUCT_CLASS)
         {
             // output array of structs
             mwIndex i = 0;
