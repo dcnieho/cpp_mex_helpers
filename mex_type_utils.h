@@ -79,7 +79,7 @@ namespace mxTypes {
 
     template<class Cont, typename... Extras>
     typename std::enable_if_t<is_container_v<Cont>, mxArray*>
-    ToMatlab(Cont data_, Extras&& ...extras_)
+    ToMatlab(Cont data_, Extras&&... extras_)
     {
         mxArray* temp = nullptr;
         using V = typename Cont::value_type;
@@ -177,24 +177,24 @@ namespace mxTypes {
     // machinery to turn a container of objects into a single struct with an array per object field
     // get field indicated by list of pointers-to-member-variable in fields
     template <typename O, typename T, typename... Os, typename... Ts>
-    constexpr auto getField(const O& obj, T O::* field1, Ts Os::*...fields)
+    constexpr auto getField(const O& obj, T O::* field1, Ts Os::*... fields)
     {
         if constexpr (!sizeof...(fields))
             return obj.*field1;
         else
-            return getField(obj.*field1, fields...);
+            return getField(obj.*field1, std::forward<Ts Os::*>(fields)...);
     }
 
     // get field indicated by list of pointers-to-member-variable in fields, process return value by either:
     // 1. transform by applying callable; or
     // 2. cast return value to user specified type
     template <typename Obj, typename OutOrFun, typename... Fs, typename... Ts>
-    constexpr auto getField(const Obj& obj, OutOrFun o, Ts Fs::*...fields)
+    constexpr auto getField(const Obj& obj, OutOrFun o, Ts Fs::*... fields)
     {
         if constexpr (std::is_invocable_v<OutOrFun, last<0, Obj, Ts...>>)
-            return o(getField(obj, fields...));
+            return o(getField(obj, std::forward<Ts Fs::*>(fields)...));
         else
-            return static_cast<OutOrFun>(getField(obj, fields...));
+            return static_cast<OutOrFun>(getField(obj, std::forward<Ts Fs::*>(fields)...));
     }
 
     template <typename Obj, typename... Fs>
@@ -206,20 +206,20 @@ namespace mxTypes {
                 [&](auto... elems) constexpr
                 {
                     return getField(obj, elems...);
-                }, fields...);
+                }, std::forward<Fs>(fields)...);
         // if last is pointer-to-member-variable, no casting of return value requested through type tag, call getField
         else if constexpr (std::is_member_object_pointer_v<last<0, Obj, Fs...>>)
-            return getField(obj, fields...);
+            return getField(obj, std::forward<Fs>(fields)...);
         // if last is an enum, compare the value of the field to it
         // this turns enum fields into a boolean given reference enum value for which true should be returned
         else if constexpr (std::is_enum_v<last<0, Obj, Fs...>>)
         {
-            auto tuple = std::make_tuple(fields...);
+            auto tuple = std::make_tuple(std::forward<Fs>(fields)...);
             return drop_last(
             [&](auto... elems) constexpr
             {
                 return getField(obj, elems...);
-            }, fields...) == std::get<sizeof...(Fs) - 1>(tuple);
+            }, std::forward<Fs>(fields)...) == std::get<sizeof...(Fs) - 1>(tuple);
         }
         else
             // if last is not pointer-to-member-variable, call getField with correct order of arguments
@@ -228,7 +228,7 @@ namespace mxTypes {
             [&](auto... elems) constexpr
             {
                 return getField(obj, elems...);
-            }, fields...);
+            }, std::forward<Fs>(fields)...);
     }
 
     // default output is storage type corresponding to the type of the member variable accessed through this function, but it can be overridden through type tag dispatch (see getFieldWrapper implementation)
@@ -238,7 +238,7 @@ namespace mxTypes {
     {
         mxArray* temp;
         using V = typename Cont::value_type;
-        using U = decltype(getFieldWrapper(std::declval<V>(), fields...));
+        using U = decltype(getFieldWrapper(std::declval<V>(), std::forward<Fs>(fields)...));
 
         if constexpr (typeNeedsMxCellStorage_v<U>)
         {
@@ -246,7 +246,7 @@ namespace mxTypes {
             temp = mxCreateCellMatrix(static_cast<mwSize>(data_.size()), 1);
             mwIndex i = 0;
             for (auto&& item : data_)
-                mxSetCell(temp, i++, ToMatlab(getFieldWrapper(item, fields...)));
+                mxSetCell(temp, i++, ToMatlab(getFieldWrapper(item, std::forward<Fs>(fields)...)));
         }
         else if constexpr (typeToMxClass_v<U> != mxSTRUCT_CLASS)
         {
@@ -256,7 +256,7 @@ namespace mxTypes {
             if (data_.size())
             {
                 for (auto&& item : data_)
-                    (*storage++) = getFieldWrapper(item, fields...);
+                    (*storage++) = getFieldWrapper(item, std::forward<Fs>(fields)...);
             }
         }
         else // NB: if constexpr (typeToMxClass_v<U> == mxSTRUCT_CLASS)
