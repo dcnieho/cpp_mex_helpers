@@ -88,7 +88,7 @@ namespace mxTypes {
             // output cell array
             temp = mxCreateCellMatrix(static_cast<mwSize>(data_.size()), 1);
             mwIndex i = 0;
-            for (auto &item : data_)
+            for (auto&& item : data_)
                 mxSetCell(temp, i++, ToMatlab(item,std::forward<Extras>(extras_)...));
         }
         else if constexpr (typeToMxClass_v<V> != mxSTRUCT_CLASS)
@@ -122,7 +122,7 @@ namespace mxTypes {
                 else    // fall back to just empty
                     temp = mxCreateDoubleMatrix(0, 0, mxREAL);
             else
-                for (auto& item : data_)
+                for (auto&& item : data_)
                     temp = ToMatlab(item, i++, static_cast<mwSize>(data_.size()), temp, std::forward<Extras>(extras_)...);
         }
         return temp;
