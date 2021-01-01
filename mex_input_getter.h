@@ -58,7 +58,7 @@ namespace mxTypes
 
         // check element exists and is not empty
         if (idx_>=nrhs || mxIsEmpty(prhs[idx_]))
-            return {};
+            return std::nullopt;
 
         // see if element passes checks. If not, thats an error for an optional value
         auto inp = prhs[idx_];
