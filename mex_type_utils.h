@@ -190,7 +190,7 @@ namespace mxTypes {
     constexpr auto getField(const Obj& obj, OutOrFun o, Ts Fs::*... fields)
     {
         if constexpr (std::is_invocable_v<OutOrFun, last<0, Obj, Ts...>>)
-            return o(getField(obj, std::forward<Ts Fs::*>(fields)...));
+            return std::invoke(o, getField(obj, std::forward<Ts Fs::*>(fields)...));
         else
             return static_cast<OutOrFun>(getField(obj, std::forward<Ts Fs::*>(fields)...));
     }
