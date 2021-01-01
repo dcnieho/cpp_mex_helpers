@@ -1,9 +1,12 @@
 #pragma once
 #include <optional>
 #include <string>
+#include <tuple>
+#include <string_view>
 #include <functional>
 #include <type_traits>
 #include <algorithm>
+#include <sstream>
 
 #include "mex_type_utils_fwd.h"
 #include "is_container_trait.h"
@@ -15,6 +18,109 @@ namespace mxTypes
 {
     namespace detail
     {
+        std::string NumberToOrdinal(size_t number)
+        {
+            std::string suffix = "th";
+            if (number % 100 < 11 || number % 100 > 13) {
+                switch (number % 10) {
+                case 1:
+                    suffix = "st";
+                    break;
+                case 2:
+                    suffix = "nd";
+                    break;
+                case 3:
+                    suffix = "rd";
+                    break;
+                }
+            }
+            return std::to_string(number) + suffix;
+        }
+
+        template <typename OutputType, bool IsContainer>
+        constexpr std::tuple<const char*, bool> buildCorrespondingMatlabTypeString_impl()
+        {
+            if constexpr (std::is_same_v<OutputType, std::string>)
+                if constexpr (IsContainer)
+                    return { "cellstring",true };
+                else
+                    return { "string",true };
+            else
+            {
+                constexpr mxClassID mxClass = typeToMxClass_v<OutputType>;
+                return { mxClassToString<mxClass>(),false };
+            }
+        }
+
+        template <typename OutputType>
+        constexpr std::tuple<const char*, bool, bool> buildCorrespondingMatlabTypeString_impl(std::string_view funcID_, size_t idx_, size_t offset_)
+        {
+            if constexpr (is_container_v<OutputType> && !std::is_same_v<OutputType, std::string>)
+            {
+                auto [typeStr, special] = buildCorrespondingMatlabTypeString_impl<typename OutputType::value_type, true>();
+                return { typeStr, special, true };
+            }
+            else
+            {
+                auto [typeStr, special] = buildCorrespondingMatlabTypeString_impl<OutputType, false>();
+                return { typeStr, special, false };
+            }
+        }
+
+        // if converter provided, for scalar output
+        template <typename T, typename Arg>
+        constexpr std::tuple<const char*, bool, bool> buildCorrespondingMatlabTypeString(std::string_view funcID_, size_t idx_, size_t offset_, T(*conv_)(Arg))
+        {
+            return buildCorrespondingMatlabTypeString_impl<std::decay_t<Arg>>(funcID_, idx_, offset_);
+        }
+        template <typename T, typename Arg>
+        constexpr std::tuple<const char*, bool, bool> buildCorrespondingMatlabTypeString(std::string_view funcID_, size_t idx_, size_t offset_, std::function<T(Arg)> conv_)
+        {
+            return buildCorrespondingMatlabTypeString_impl<std::decay_t<Arg>>(funcID_, idx_, offset_);
+        }
+        // if converter provided, for container output
+        template <typename T, typename Arg>
+        constexpr std::tuple<const char*, bool, bool> buildCorrespondingMatlabTypeString(std::string_view funcID_, size_t idx_, size_t offset_, typename T::value_type(*conv_)(Arg))
+        {
+            return buildCorrespondingMatlabTypeString_impl<replace_specialization_type_t<std::vector<T::value_type>, std::decay_t<Arg>>>(funcID_, idx_, offset_);
+        }
+        template <typename T, typename Arg>
+        constexpr std::tuple<const char*, bool, bool> buildCorrespondingMatlabTypeString(std::string_view funcID_, size_t idx_, size_t offset_, std::function<typename T::value_type(Arg)> conv_)
+        {
+            return buildCorrespondingMatlabTypeString_impl<replace_specialization_type_t<std::vector<T::value_type>, std::decay_t<Arg>>>(funcID_, idx_, offset_);
+        }
+        // if no converter provided by user
+        template <typename T>
+        constexpr std::tuple<const char*, bool, bool> buildCorrespondingMatlabTypeString(std::string_view funcID_, size_t idx_, size_t offset_, nullptr_t conv_)
+        {
+            return buildCorrespondingMatlabTypeString_impl<T>(funcID_, idx_, offset_);
+        }
+
+        template <typename T, typename Converter>
+        void buildAndThrowError(std::string_view funcID_, size_t idx_, size_t offset_, bool isOptional_, Converter conv_)
+        {
+            auto [typeStr, special, isContainer] = buildCorrespondingMatlabTypeString<T>(funcID_, idx_, offset_, conv_);
+            std::stringstream os;
+            os << "SWAG::" << funcID_ << ": ";
+            if (isOptional_)
+                os << "Optional ";
+            auto ordinal = idx_ - offset_ + 1;
+            os << NumberToOrdinal(ordinal) << " argument must be a";
+            if (typeStr[0] == 'a' || typeStr[0] == 'e' || typeStr[0] == 'i' || typeStr[0] == 'o' || typeStr[0] == 'u')
+                os << "n";
+            os << " " << typeStr;
+            if (!special)
+            {
+                if (isContainer)
+                    os << " array" << typeStr;
+                else
+                    os << " scalar" << typeStr;
+            }
+            os << ".";
+            throw os.str();
+        }
+
+
         template <typename T>
         bool checkInput_impl_cell(const mxArray* inp_)
         {
@@ -192,7 +298,7 @@ namespace mxTypes
     // for optional input arguments, use std::optional<T> as return type
     template <typename OutputType, typename Converter = nullptr_t>
     typename std::enable_if_t<is_specialization_v<OutputType, std::optional>, OutputType>
-        FromMatlab(int nrhs, const mxArray* prhs[], size_t idx_, const char* errorStr_, Converter conv_ = nullptr)
+        FromMatlab(int nrhs, const mxArray* prhs[], size_t idx_, std::string_view funcID_, size_t offset_, Converter conv_ = nullptr)
     {
         using ValueType = typename OutputType::value_type;
 
@@ -203,7 +309,7 @@ namespace mxTypes
         // see if element passes checks. If not, thats an error for an optional value
         auto inp = prhs[idx_];
         if (!detail::checkInput<ValueType>(inp, conv_))
-            throw errorStr_;
+            detail::buildAndThrowError<ValueType>(funcID_, idx_, offset_, true, conv_);
 
         return detail::getValue<ValueType>(inp, conv_);
     }
@@ -211,11 +317,11 @@ namespace mxTypes
     // for required arguments
     template <typename OutputType, typename Converter = nullptr_t>
     typename std::enable_if_t<!is_specialization_v<OutputType, std::optional>, OutputType>
-        FromMatlab(int nrhs, const mxArray* prhs[], size_t idx_, const char* errorStr_, Converter conv_ = nullptr)
+        FromMatlab(int nrhs, const mxArray* prhs[], size_t idx_, std::string_view funcID_, size_t offset_, Converter conv_ = nullptr)
     {
         // check element exists, is not empty and passes checks
         if (idx_>=nrhs || mxIsEmpty(prhs[idx_]) || !detail::checkInput<OutputType>(prhs[idx_], conv_))
-            throw errorStr_;
+            detail::buildAndThrowError<OutputType>(funcID_, idx_, offset_, false, conv_);
 
         return detail::getValue<OutputType>(prhs[idx_], conv_);
     }
