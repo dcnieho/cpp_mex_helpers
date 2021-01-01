@@ -3,12 +3,10 @@
 
 #include "mex_type_utils_fwd.h"
 #include "pack_utils.h"
+#include "always_false.h"
 
 
 namespace mxTypes {
-    // needed helper to be able to do static_assert(false,...) in some constexpr if branches below, e.g. to mark them as todo TODO
-    template <class...> constexpr std::false_type always_false{};
-
     //// functionality to convert C++ types to MATLAB ClassIDs and back
     template <typename T> struct typeToMxClass { static_assert(always_false<T>, "typeToMxClass not implemented for this type"); static constexpr mxClassID value = mxUNKNOWN_CLASS; };
     template <>           struct typeToMxClass<double  > { static constexpr mxClassID value = mxDOUBLE_CLASS; };
