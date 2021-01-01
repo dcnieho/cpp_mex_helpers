@@ -16,6 +16,20 @@ namespace mxTypes
     namespace detail
     {
         template <typename T>
+        bool checkInput_impl_cell(const mxArray* inp_)
+        {
+            if (!mxIsCell(inp_))
+                return false;
+
+            // recurse to check each contained element
+            const auto nElem = static_cast<mwIndex>(mxGetNumberOfElements(inp_));
+            for (mwIndex i = 0; i < nElem; i++)
+                if (!checkInput_impl<T>(mxGetCell(inp_, i)))
+                    return false;
+
+            return true;
+        }
+        template <typename T>
         bool checkInput_impl(const mxArray* inp_)
         {
             // early out for complex arguments, never wanted by us
@@ -30,19 +44,15 @@ namespace mxTypes
             {
                 if constexpr (typeNeedsMxCellStorage_v<T::value_type>)
                 {
-                    if (!mxIsCell(inp_))
-                        return false;
-
-                    // recurse to check each contained element
-                    const auto nElem = static_cast<mwIndex>(mxGetNumberOfElements(inp_));
-                    for (mwIndex i = 0; i < nElem; i++)
-                        if (!checkInput_impl<T::value_type>(mxGetCell(inp_, i)))
-                            return false;
-
-                    return true;
+                    return checkInput_impl_cell<T::value_type>(inp_);
                 }
                 else
-                    return mxGetClassID(inp_)==typeToMxClass_v<T::value_type>;
+                {
+                    if (mxIsCell(inp_))
+                        return checkInput_impl_cell<T::value_type>(inp_);
+                    else
+                        return mxGetClassID(inp_)==typeToMxClass_v<T::value_type>;
+                }
             }
             else
                 return mxGetClassID(inp_)==typeToMxClass_v<T> && mxIsScalar(inp_);
@@ -96,7 +106,7 @@ namespace mxTypes
             }
             else if constexpr (is_container_v<T>)
             {
-                if constexpr (typeNeedsMxCellStorage_v<T::value_type>)
+                if (typeNeedsMxCellStorage_v<T::value_type> || mxIsCell(inp_))
                 {
                     const auto nElem = static_cast<mwIndex>(mxGetNumberOfElements(inp_));
                     T out;
