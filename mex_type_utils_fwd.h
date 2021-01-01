@@ -22,6 +22,9 @@ namespace mxTypes {
     template <mxClassID T>
     constexpr mxClassID MxClassToType();
 
+    template <mxClassID T>
+    constexpr const char* mxClassToString();
+
     //// converters of generic data types to MATLAB variables
     //// to simple variables
     mxArray* ToMatlab(std::string str_);

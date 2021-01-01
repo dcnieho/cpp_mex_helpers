@@ -58,6 +58,35 @@ namespace mxTypes {
             using type = int8_t;
     }
 
+    template <mxClassID T>
+    constexpr const char* mxClassToString()
+    {
+        if      constexpr (T == mxDOUBLE_CLASS)
+            return "double";
+        else if constexpr (T == mxSINGLE_CLASS)
+            return "float";
+        else if constexpr (T == mxLOGICAL_CLASS)
+            return "logical";
+        else if constexpr (T == mxUINT64_CLASS)
+            return "uint64";
+        else if constexpr (T == mxINT64_CLASS)
+            return "int64";
+        else if constexpr (T == mxUINT32_CLASS)
+            return "uint32";
+        else if constexpr (T == mxINT32_CLASS)
+            return "int32";
+        else if constexpr (T == mxUINT16_CLASS)
+            return "uint16";
+        else if constexpr (T == mxINT16_CLASS)
+            return "int16";
+        else if constexpr (T == mxUINT8_CLASS)
+            return "uint8";
+        else if constexpr (T == mxINT8_CLASS)
+            return "int8";
+        else if constexpr (T == mxCHAR_CLASS)
+            return "string";
+    }
+
     //// converters of generic data types to MATLAB variables
     //// to simple variables
     mxArray* ToMatlab(std::string str_)
