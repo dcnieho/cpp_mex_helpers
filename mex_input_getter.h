@@ -23,7 +23,23 @@ namespace mxTypes
             if constexpr (std::is_same_v<T, std::string>)
                 return mxIsChar(inp_);
             else if constexpr (is_container_v<T>)
-                return mxGetClassID(inp_)==typeToMxClass_v<T::value_type>;
+            {
+                if constexpr (typeNeedsMxCellStorage_v<T::value_type>)
+                {
+                    if (!mxIsCell(inp_))
+                        return false;
+
+                    // recurse to check each contained element
+                    const auto nElem = static_cast<mwIndex>(mxGetNumberOfElements(inp_));
+                    for (mwIndex i = 0; i < nElem; i++)
+                        if (!checkInput<T::value_type>(mxGetCell(inp_, i)))
+                            return false;
+
+                    return true;
+                }
+                else
+                    return mxGetClassID(inp_)==typeToMxClass_v<T::value_type>;
+            }
             else
                 return mxGetClassID(inp_)==typeToMxClass_v<T            > && mxIsScalar(inp_);
         }
@@ -34,15 +50,28 @@ namespace mxTypes
             if constexpr (std::is_same_v<T, std::string>)
             {
                 char* str = mxArrayToString(inp_);
-                T out = str;
+                T out     = str;
                 mxFree(str);
                 return out;
             }
             else if constexpr (is_container_v<T>)
             {
-                auto data  = static_cast<typename T::value_type*>(mxGetData(inp_));
-                auto numel = mxGetNumberOfElements(inp_);
-                return T(data, data+numel);
+                if constexpr (typeNeedsMxCellStorage_v<T::value_type>)
+                {
+                    // recurse to get each contained element
+                    const auto nElem = static_cast<mwIndex>(mxGetNumberOfElements(inp_));
+                    T out;
+                    out.reserve(nElem);
+                    for (mwIndex i=0; i<nElem; i++)
+                        out.emplace_back(getValue<T::value_type>(mxGetCell(inp_, i)));
+                    return out;
+                }
+                else
+                {
+                    auto data  = static_cast<typename T::value_type*>(mxGetData(inp_));
+                    auto numel = mxGetNumberOfElements(inp_);
+                    return T(data, data+numel);
+                }
             }
             else
                 return *static_cast<T*>(mxGetData(inp_));
