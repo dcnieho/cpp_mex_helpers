@@ -12,7 +12,7 @@
 
 
 namespace mxTypes {
-    // functionality to convert C++ types to MATLAB ClassIDs and back
+    //// functionality to convert C++ types to MATLAB ClassIDs and back
     template <typename T>
     struct typeToMxClass;
 
@@ -38,7 +38,7 @@ namespace mxTypes {
     template <class T>         mxArray* ToMatlab(std::shared_ptr<T> val_);
     template <class... Types>  mxArray* ToMatlab(std::tuple<Types...> val_);
 
-    // generic ToMatlab that converts provided data
+    // generic ToMatlab that converts provided data through type tag dispatch
     template <class T, class U>
     typename std::enable_if_t<!is_container_v<T>, mxArray*>
         ToMatlab(T val_, U);

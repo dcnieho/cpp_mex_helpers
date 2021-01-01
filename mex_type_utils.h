@@ -9,8 +9,8 @@ namespace mxTypes {
     // needed helper to be able to do static_assert(false,...) in some constexpr if branches below, e.g. to mark them as todo TODO
     template <class...> constexpr std::false_type always_false{};
 
-    // functionality to convert C++ types to MATLAB ClassIDs and back
-    template <typename T> struct typeToMxClass { static_assert(always_false<T>, "mxClassID not implemented for this type"); static constexpr mxClassID value = mxUNKNOWN_CLASS; };
+    //// functionality to convert C++ types to MATLAB ClassIDs and back
+    template <typename T> struct typeToMxClass { static_assert(always_false<T>, "typeToMxClass not implemented for this type"); static constexpr mxClassID value = mxUNKNOWN_CLASS; };
     template <>           struct typeToMxClass<double  > { static constexpr mxClassID value = mxDOUBLE_CLASS; };
     template <>           struct typeToMxClass<float   > { static constexpr mxClassID value = mxSINGLE_CLASS; };
     template <>           struct typeToMxClass<bool    > { static constexpr mxClassID value = mxLOGICAL_CLASS; };
@@ -164,7 +164,7 @@ namespace mxTypes {
         return ret;
     }
 
-    // generic ToMatlab that converts provided data
+    // generic ToMatlab that converts provided data through type tag dispatch
     template <class T, class U>
     typename std::enable_if_t<!is_container_v<T>, mxArray*>
     ToMatlab(T val_, U)
