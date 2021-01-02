@@ -191,6 +191,29 @@ namespace mxTypes {
         return ret;
     }
 
+    template <class Key, class Value, class... Other>
+    typename std::enable_if_t<std::is_same_v<Key, std::string>, mxArray*>
+        ToMatlab(std::map<Key, Value, Other...> val_)
+    {
+        // get all keys
+        std::vector<Key> keys;
+        for (auto&& [key,val]: val_)
+            keys.push_back(std::move(key));
+        // get a vector of pointers to beginning of strings, so we can pass it to the C API of mxCreateStructMatrix
+        std::vector<const char*> fields;
+        for (auto&& k: keys)
+            fields.push_back(k.c_str());
+
+        // create the struct
+        auto storage = mxCreateStructMatrix(1, 1, static_cast<int>(fields.size()), fields.data());
+
+        // copy data into it
+        for (int i=0; auto&& [key, val] : val_)
+            mxSetFieldByNumber(storage, 0, i++, ToMatlab(val));
+
+        return storage;
+    }
+
     // generic ToMatlab that converts provided data through type tag dispatch
     template <class T, class U>
     typename std::enable_if_t<!is_container_v<T>, mxArray*>

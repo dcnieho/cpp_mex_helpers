@@ -4,6 +4,7 @@
 #include <vector>
 #include <array>
 #include <tuple>
+#include <map>
 #include <optional>
 #include <memory>
 
@@ -40,6 +41,9 @@ namespace mxTypes {
     template <class T>         mxArray* ToMatlab(std::optional<T> val_);
     template <class T>         mxArray* ToMatlab(std::shared_ptr<T> val_);
     template <class... Types>  mxArray* ToMatlab(std::tuple<Types...> val_);
+    template <class Key, class Value, class... Other>
+    typename std::enable_if_t<std::is_same_v<Key,std::string>, mxArray*>
+        ToMatlab(std::map<Key, Value, Other...> val_);
 
     // generic ToMatlab that converts provided data through type tag dispatch
     template <class T, class U>
