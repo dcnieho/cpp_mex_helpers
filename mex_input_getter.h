@@ -112,9 +112,9 @@ namespace mxTypes
             if (!special)
             {
                 if (isContainer)
-                    os << " array" << typeStr;
+                    os << " array";
                 else
-                    os << " scalar" << typeStr;
+                    os << " scalar";
             }
             os << ".";
             throw os.str();
