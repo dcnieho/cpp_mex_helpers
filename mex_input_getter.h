@@ -11,6 +11,7 @@
 #include "mex_type_utils_fwd.h"
 #include "is_container_trait.h"
 #include "is_specialization_trait.h"
+#include "replace_specialization_type.h"
 #include "always_false.h"
 
 
