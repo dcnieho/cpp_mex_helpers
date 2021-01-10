@@ -206,16 +206,36 @@ namespace mxTypes {
 
     template <template <class...> class T, class... Args>
     typename std::enable_if_t<
-        is_specialization_v<T<Args...>, std::pair> ||
-        is_specialization_v<T<Args...>, std::tuple>
-        , mxArray*>
+            is_specialization_v<T<Args...>, std::pair> ||
+            is_specialization_v<T<Args...>, std::tuple>,
+        mxArray*>
         ToMatlab(T<Args...> val_)
     {
-        mxArray* ret = mxCreateCellMatrix(static_cast<mwSize>(sizeof...(Args)), 1);
+        mxArray* storage = mxCreateCellMatrix(static_cast<mwSize>(sizeof...(Args)), 1);
         mwIndex i = 0;
-        std::apply([&](auto&&... args) {(mxSetCell(ret, i++, ToMatlab(args)), ...); }, val_);
+        std::apply([&](auto&&... args) {(mxSetCell(storage, i++, ToMatlab(args)), ...); }, val_);
 
-        return ret;
+        return storage;
+    }
+    template<class Cont>
+    typename std::enable_if_t<
+            is_container_v<Cont> && (
+                is_specialization_v<typename Cont::value_type, std::pair> ||
+                is_specialization_v<typename Cont::value_type, std::tuple>),
+        mxArray*>
+        ToMatlab(Cont data_)
+    {
+        static constexpr size_t N = std::tuple_size_v<typename Cont::value_type>;
+        size_t nElem = data_.size();
+        mxArray* storage = mxCreateCellMatrix(static_cast<mwSize>(nElem), static_cast<mwSize>(N));
+        for (mwIndex i = 0; auto&& item: data_)
+        {
+            mwIndex j = 0;
+            std::apply([&](auto&&... args) {(mxSetCell(storage, (j++)*nElem+i, ToMatlab(args)), ...); }, item);
+            ++i;
+        }
+
+        return storage;
     }
 
     // generic ToMatlab that converts provided data through type tag dispatch
