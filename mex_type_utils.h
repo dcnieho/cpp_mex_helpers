@@ -181,13 +181,23 @@ namespace mxTypes {
             return ToMatlab(*val_);
     }
 
-    template <class Key, class Value, class... Other>
-    typename std::enable_if_t<std::is_same_v<Key, std::string>, mxArray*>
-        ToMatlab(std::map<Key, Value, Other...> val_)
+    template <template <class...> class Cont, class... Args>
+    typename std::enable_if_t<
+        (
+            is_specialization_v<Cont<Args...>, std::map> ||
+            is_specialization_v<Cont<Args...>, std::unordered_map>
+            )
+        &&
+        (
+            std::is_same_v<typename Cont<Args...>::key_type, std::string> ||
+            std::is_convertible_v<typename Cont<Args...>::key_type, std::string>
+            ),
+        mxArray*>
+        ToMatlab(Cont<Args...> data_)
     {
         // get all keys
-        std::vector<Key> keys;
-        for (auto&& [key,val]: val_)
+        std::vector<std::string> keys;
+        for (auto&& [key, val]: data_)
             keys.push_back(std::move(key));
         // get a vector of pointers to beginning of strings, so we can pass it to the C API of mxCreateStructMatrix
         std::vector<const char*> fields;
@@ -198,8 +208,27 @@ namespace mxTypes {
         auto storage = mxCreateStructMatrix(1, 1, static_cast<int>(fields.size()), fields.data());
 
         // copy data into it
-        for (int i=0; auto&& [key, val] : val_)
+        for (int i=0; auto&& [key, val] : data_)
             mxSetFieldByNumber(storage, 0, i++, ToMatlab(val));
+
+        return storage;
+    }
+    template <template <class...> class Cont, class... Args>
+    typename std::enable_if_t<
+            is_specialization_v<Cont<Args...>, std::set> ||
+            is_specialization_v<Cont<Args...>, std::unordered_set> ||
+            is_specialization_v<Cont<Args...>, std::multiset> ||
+            is_specialization_v<Cont<Args...>, std::unordered_multiset>,
+        mxArray*>
+        ToMatlab(Cont<Args...> data_)
+    {
+        mxArray* storage = mxCreateCellMatrix(1, static_cast<mwSize>(data_.size()));
+        
+        for (mwIndex i = 0; auto && item: data_)
+        {
+            mxSetCell(storage, i, ToMatlab(item));
+            ++i;
+        }
 
         return storage;
     }

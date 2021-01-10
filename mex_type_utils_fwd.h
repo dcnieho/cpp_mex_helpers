@@ -1,13 +1,21 @@
 #pragma once
 #include <string>
-#include <variant>
+
 #include <vector>
 #include <array>
-#include <tuple>
-#include <map>
-#include <utility>
+
+#include <variant>
 #include <optional>
 #include <memory>
+
+#include <map>
+#include <set>
+#include <unordered_map>
+#include <unordered_set>
+
+#include <utility>
+#include <tuple>
+
 
 #include "include_matlab.h"
 #include "is_container_trait.h"
@@ -42,9 +50,33 @@ namespace mxTypes {
     template <class... Types>  mxArray* ToMatlab(std::variant<Types...> val_);
     template <class T>         mxArray* ToMatlab(std::optional<T> val_);
     template <class T>         mxArray* ToMatlab(std::shared_ptr<T> val_);
-    template <class Key, class Value, class... Other>
-    typename std::enable_if_t<std::is_same_v<Key,std::string>, mxArray*>
-        ToMatlab(std::map<Key, Value, Other...> val_);
+
+    // associative containers
+    // associative key-value container with unique string keys -> matlab struct
+    // NB: all other key-value containers are handled by Cont<std::pair> handler
+    // below
+    template <template <class...> class Cont, class... Args>
+    typename std::enable_if_t<
+        (
+            is_specialization_v<Cont<Args...>, std::map> ||
+            is_specialization_v<Cont<Args...>, std::unordered_map>
+            )
+        &&
+        (
+            std::is_same_v<typename Cont<Args...>::key_type, std::string> ||
+            std::is_convertible_v<typename Cont<Args...>::key_type, std::string>
+            ),
+        mxArray*>
+        ToMatlab(Cont<Args...> data_);
+    // sets
+    template <template <class...> class Cont, class... Args>
+    typename std::enable_if_t<
+            is_specialization_v<Cont<Args...>, std::set> ||
+            is_specialization_v<Cont<Args...>, std::unordered_set> ||
+            is_specialization_v<Cont<Args...>, std::multiset> ||
+            is_specialization_v<Cont<Args...>, std::unordered_multiset>,
+        mxArray*>
+        ToMatlab(Cont<Args...> data_);
 
     // std::tuple or std::pair
     template <template <class...> class T, class... Args>
@@ -57,9 +89,9 @@ namespace mxTypes {
     // std::tuple or std::pair
     template<class Cont>
     typename std::enable_if_t<
-            is_container_v<Cont> && (
-                is_specialization_v<typename Cont::value_type, std::pair> ||
-                is_specialization_v<typename Cont::value_type, std::tuple>),
+        is_container_v<Cont> && (
+            is_specialization_v<typename Cont::value_type, std::pair> ||
+            is_specialization_v<typename Cont::value_type, std::tuple>),
         mxArray*>
         ToMatlab(Cont data_);
 
