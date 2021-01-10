@@ -5,11 +5,13 @@
 #include <array>
 #include <tuple>
 #include <map>
+#include <utility>
 #include <optional>
 #include <memory>
 
 #include "include_matlab.h"
 #include "is_container_trait.h"
+#include "is_specialization_trait.h"
 
 
 namespace mxTypes {
@@ -40,10 +42,16 @@ namespace mxTypes {
     template <class... Types>  mxArray* ToMatlab(std::variant<Types...> val_);
     template <class T>         mxArray* ToMatlab(std::optional<T> val_);
     template <class T>         mxArray* ToMatlab(std::shared_ptr<T> val_);
-    template <class... Types>  mxArray* ToMatlab(std::tuple<Types...> val_);
     template <class Key, class Value, class... Other>
     typename std::enable_if_t<std::is_same_v<Key,std::string>, mxArray*>
         ToMatlab(std::map<Key, Value, Other...> val_);
+
+    template <template <class...> class T, class... Args>
+    typename std::enable_if_t<
+            is_specialization_v<T<Args...>, std::pair> ||
+            is_specialization_v<T<Args...>, std::tuple>
+        , mxArray*>
+        ToMatlab(T<Args...> val_);
 
     // generic ToMatlab that converts provided data through type tag dispatch
     template <class T, class U>

@@ -181,16 +181,6 @@ namespace mxTypes {
             return ToMatlab(*val_);
     }
 
-    template <class... Types>
-    mxArray* ToMatlab(std::tuple<Types...> val_)
-    {
-        mxArray* ret = mxCreateCellMatrix(static_cast<mwSize>(sizeof...(Types)), 1);
-        mwIndex i = 0;
-        std::apply([&](auto&&... args) {(mxSetCell(ret, i++, ToMatlab(args)), ...); }, val_);
-
-        return ret;
-    }
-
     template <class Key, class Value, class... Other>
     typename std::enable_if_t<std::is_same_v<Key, std::string>, mxArray*>
         ToMatlab(std::map<Key, Value, Other...> val_)
@@ -212,6 +202,20 @@ namespace mxTypes {
             mxSetFieldByNumber(storage, 0, i++, ToMatlab(val));
 
         return storage;
+    }
+
+    template <template <class...> class T, class... Args>
+    typename std::enable_if_t<
+        is_specialization_v<T<Args...>, std::pair> ||
+        is_specialization_v<T<Args...>, std::tuple>
+        , mxArray*>
+        ToMatlab(T<Args...> val_)
+    {
+        mxArray* ret = mxCreateCellMatrix(static_cast<mwSize>(sizeof...(Args)), 1);
+        mwIndex i = 0;
+        std::apply([&](auto&&... args) {(mxSetCell(ret, i++, ToMatlab(args)), ...); }, val_);
+
+        return ret;
     }
 
     // generic ToMatlab that converts provided data through type tag dispatch
