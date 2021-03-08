@@ -102,7 +102,9 @@ namespace mxTypes
         {
             auto [typeStr, special, isContainer] = buildCorrespondingMatlabTypeString<T>(funcID_, idx_, offset_, conv_);
             std::stringstream os;
-            os << "SWAG::" << funcID_ << ": ";
+            os << "SWAG::";
+            if (!funcID_.empty())
+                os << funcID_ << ": ";
             if (isOptional_)
                 os << "Optional ";
             auto ordinal = idx_ - offset_ + 1;
@@ -217,7 +219,6 @@ namespace mxTypes
                 {
                     const auto nElem = static_cast<mwIndex>(mxGetNumberOfElements(inp_));
                     T out;
-                    out.reserve(nElem);
                     for (mwIndex i = 0; i < nElem; i++)
                         out.emplace_back(getValue_impl<T::value_type>(mxGetCell(inp_, i)));
                     return out;
