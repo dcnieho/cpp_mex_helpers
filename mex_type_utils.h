@@ -26,7 +26,7 @@ namespace mxTypes {
     template <typename T>
     struct typeNeedsMxCellStorage
     {
-        static constexpr bool value = !std::is_arithmetic_v<T>; // true for integrals and floating point, and bool is included in integral
+        static constexpr bool value = !std::is_arithmetic_v<T>; // std::is_arithmetic_v is true for integrals and floating point, and bool is included in integral
     };
     template <typename T>
     constexpr bool typeNeedsMxCellStorage_v = typeNeedsMxCellStorage<T>::value;
@@ -240,11 +240,7 @@ namespace mxTypes {
         mxArray*>
         ToMatlab(T<Args...> val_)
     {
-        mxArray* storage = mxCreateCellMatrix(static_cast<mwSize>(sizeof...(Args)), 1);
-        mwIndex i = 0;
-        std::apply([&](auto&&... args) {(mxSetCell(storage, i++, ToMatlab(args)), ...); }, val_);
-
-        return storage;
+        return ToMatlab(std::array{ val_ });      // forward to container version, to not duplicate logic
     }
     template<class Cont>
     typename std::enable_if_t<
@@ -255,13 +251,13 @@ namespace mxTypes {
         ToMatlab(Cont data_)
     {
         static constexpr size_t N = std::tuple_size_v<typename Cont::value_type>;
-        size_t nElem = data_.size();
-        mxArray* storage = mxCreateCellMatrix(static_cast<mwSize>(nElem), static_cast<mwSize>(N));
+        size_t nRow = data_.size();
+        mxArray* storage = mxCreateCellMatrix(static_cast<mwSize>(nRow), static_cast<mwSize>(N));
         for (mwIndex i = 0; auto&& item: data_)
         {
-            mwIndex j = 0;
-            std::apply([&](auto&&... args) {(mxSetCell(storage, (j++)*nElem+i, ToMatlab(args)), ...); }, item);
-            ++i;
+            mwIndex j = 0; // column index
+            std::apply([&](auto&&... args) {(mxSetCell(storage, i + (j++)*nRow, ToMatlab(args)), ...); }, item);
+            ++i; // next row
         }
 
         return storage;

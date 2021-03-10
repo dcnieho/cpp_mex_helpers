@@ -79,19 +79,20 @@ namespace mxTypes {
         ToMatlab(Cont<Args...> data_);
 
     // std::tuple or std::pair
+    // 1. simple std::tuple or std::pair
     template <template <class...> class T, class... Args>
     typename std::enable_if_t<
             is_specialization_v<T<Args...>, std::pair> ||
             is_specialization_v<T<Args...>, std::tuple>,
         mxArray*>
         ToMatlab(T<Args...> val_);
-    // special implementation for containers (e.g. vectors and arrays) of
-    // std::tuple or std::pair
+    // 2. special implementation for containers (e.g. vectors and arrays
+    // containing std::tuple or std::pair)
     template<class Cont>
     typename std::enable_if_t<
-        is_container_v<Cont> && (
-            is_specialization_v<typename Cont::value_type, std::pair> ||
-            is_specialization_v<typename Cont::value_type, std::tuple>),
+            is_container_v<Cont> && (
+                is_specialization_v<typename Cont::value_type, std::pair> ||
+                is_specialization_v<typename Cont::value_type, std::tuple>),
         mxArray*>
         ToMatlab(Cont data_);
 

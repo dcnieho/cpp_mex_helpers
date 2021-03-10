@@ -3,7 +3,7 @@
 template <typename C, class R>
 struct replace_specialization_type;
 
-template <template <class...> class Container, typename ... Args, class R>
+template <template <class...> class Container, typename... Args, class R>
 struct replace_specialization_type<Container<Args...>, R>
 {
     using type = Container<R>;
