@@ -6,7 +6,6 @@
 #include <functional>
 #include <type_traits>
 #include <algorithm>
-#include <sstream>
 
 #include "mex_type_utils_fwd.h"
 #include "is_container_trait.h"
@@ -101,26 +100,30 @@ namespace mxTypes
         void buildAndThrowError(std::string_view funcID_, size_t idx_, size_t offset_, bool isOptional_, Converter conv_)
         {
             auto [typeStr, special, isContainer] = buildCorrespondingMatlabTypeString<T>(funcID_, idx_, offset_, conv_);
-            std::stringstream os;
-            os << "SWAG::";
+            std::string out;
+            out.reserve(50);
+            out += "SWAG::";
             if (!funcID_.empty())
-                os << funcID_ << ": ";
+            {
+                out += funcID_;
+                out += ": ";
+            }
             if (isOptional_)
-                os << "Optional ";
+                out += "Optional ";
             auto ordinal = idx_ - offset_ + 1;
-            os << NumberToOrdinal(ordinal) << " argument must be a";
+            out += NumberToOrdinal(ordinal) + " argument must be a";
             if (typeStr[0] == 'a' || typeStr[0] == 'e' || typeStr[0] == 'i' || typeStr[0] == 'o' || typeStr[0] == 'u')
-                os << "n";
-            os << " " << typeStr;
+                out += "n";
+            out += " " << typeStr;
             if (!special)
             {
                 if (isContainer)
-                    os << " array";
+                    out += " array";
                 else
-                    os << " scalar";
+                    out += " scalar";
             }
-            os << ".";
-            throw os.str();
+            out += ".";
+            throw out;
         }
 
 
@@ -152,9 +155,7 @@ namespace mxTypes
             else if constexpr (is_container_v<T>)
             {
                 if constexpr (typeNeedsMxCellStorage_v<T::value_type>)
-                {
                     return checkInput_impl_cell<T::value_type>(inp_);
-                }
                 else
                 {
                     if (mxIsCell(inp_))
