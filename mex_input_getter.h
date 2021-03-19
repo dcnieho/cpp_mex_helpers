@@ -245,8 +245,8 @@ namespace mxTypes
             bool>
             checkInput_impl(const mxArray* inp_)
         {
-            // early out for complex arguments, never wanted by us
-            if (mxIsComplex(inp_))
+            // early out for complex or sparse arguments, never wanted by us
+            if (mxIsComplex(inp_) || mxIsSparse(inp_))
                 return false;
 
             if constexpr (std::is_same_v<Cont, std::string>)
@@ -263,8 +263,8 @@ namespace mxTypes
         typename std::enable_if_t<!is_container_v<T>, bool>
             checkInput_impl(const mxArray* inp_)
         {
-            // early out for complex arguments, never wanted by us
-            if (mxIsComplex(inp_))
+            // early out for complex or sparse arguments, never wanted by us
+            if (mxIsComplex(inp_) || mxIsSparse(inp_))
                 return false;
 
             // NB: below checks if mxArray contains exactly the expected type,
