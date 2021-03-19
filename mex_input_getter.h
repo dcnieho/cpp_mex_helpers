@@ -133,11 +133,11 @@ namespace mxTypes
         }
 
         template <typename T, typename Converter>
-        void buildAndThrowError(std::string_view funcID_, size_t idx_, size_t offset_, bool isOptional_, Converter conv_)
+        void buildAndThrowError(std::string_view funcID_, size_t idx_, size_t offset_, int nrhs_, const mxArray* prhs_[], bool isOptional_, Converter conv_)
         {
             auto typeStr = buildCorrespondingMatlabTypeString<T>(conv_);
             std::string out;
-            out.reserve(50);
+            out.reserve(100);
             out += "SWAG::";
             if (!funcID_.empty())
             {
@@ -169,7 +169,35 @@ namespace mxTypes
                 else
                     out += " scalar";
             }
-            out += ".";
+            out += ". ";
+
+            // now say what the argument instead contained (and some special cases like
+            // not enough arguments provided or empty argument)
+            if (idx_ >= nrhs_)
+                out += "Not enough input arguments. Only " + std::to_string(nrhs_ - offset_) + " were provided.";
+            else if(mxIsEmpty(prhs_[idx_]))
+                out += "The provided input argument was empty.";
+            else
+            {
+                out += "The provided input argument was a ";
+                if (mxIsSparse(prhs_[idx_]))
+                    out += "sparse ";
+                if (mxIsComplex(prhs_[idx_]))
+                    out += "complex ";
+                auto numDim = mxGetNumberOfDimensions(prhs_[idx_]);
+                auto dims   = mxGetDimensions(prhs_[idx_]);
+                for (mwSize i = 0; i < numDim; ++i)
+                {
+                    out += std::to_string(dims[i]);
+                    if (i < numDim - 1)
+                        out += "x";
+                    else
+                        out += " ";
+                }
+
+                out += mxGetClassName(prhs_[idx_]);
+                out += ".";
+            }
             throw out;
         }
 
@@ -470,7 +498,7 @@ namespace mxTypes
         // see if element passes checks. If not, thats an error for an optional value
         auto inp = prhs[idx_];
         if (!detail::checkInput<ValueType>(inp, conv_))
-            detail::buildAndThrowError<ValueType>(funcID_, idx_, offset_, true, conv_);
+            detail::buildAndThrowError<ValueType>(funcID_, idx_, offset_, nrhs, prhs, true, conv_);
 
         return detail::getValue<ValueType>(inp, conv_);
     }
@@ -482,7 +510,7 @@ namespace mxTypes
     {
         // check element exists, is not empty and passes checks
         if (idx_>=nrhs || mxIsEmpty(prhs[idx_]) || !detail::checkInput<OutputType>(prhs[idx_], conv_))
-            detail::buildAndThrowError<OutputType>(funcID_, idx_, offset_, false, conv_);
+            detail::buildAndThrowError<OutputType>(funcID_, idx_, offset_, nrhs, prhs, false, conv_);
 
         return detail::getValue<OutputType>(prhs[idx_], conv_);
     }
