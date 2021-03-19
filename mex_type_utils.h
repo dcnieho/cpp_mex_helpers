@@ -85,6 +85,18 @@ namespace mxTypes {
             return "int8";
         else if constexpr (T == mxCHAR_CLASS)
             return "string";
+        else if constexpr (T == mxCELL_CLASS)
+            return "cell";
+        else if constexpr (T == mxFUNCTION_CLASS)
+            return "function";
+        else if constexpr (T == mxOPAQUE_CLASS)
+            return "opaque";
+        else if constexpr (T == mxOBJECT_CLASS)
+            return "object";
+        else if constexpr (T == mxSTRUCT_CLASS)
+            return "struct";
+        else
+            return "unknown";
     }
 
     //// converters of generic data types to MATLAB variables
