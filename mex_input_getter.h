@@ -281,10 +281,15 @@ namespace mxTypes
                 return mxIsChar(inp_);
             else
             {
-                if (typeNeedsMxCellStorage_v<Cont::value_type> || mxIsCell(inp_))
+                if constexpr (typeNeedsMxCellStorage_v<Cont::value_type>)
                     return checkInput_impl_cell<Cont::value_type>(inp_);
                 else
-                    return checkInput_impl<Cont::value_type>(inp_);
+                {
+                    if (mxIsCell(inp_))
+                        return checkInput_impl_cell<Cont::value_type>(inp_);
+                    else
+                        return mxGetClassID(inp_) == typeToMxClass_v<Cont::value_type>;
+                }
             }
         }
         template <typename T>
