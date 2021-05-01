@@ -30,6 +30,9 @@ namespace mxTypes {
     template <typename T>
     struct typeNeedsMxCellStorage;
 
+    template <typename T>
+    struct typeDumpVectorOneAtATime;
+
     template <mxClassID T>
     constexpr mxClassID MxClassToType();
 

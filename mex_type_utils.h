@@ -31,6 +31,14 @@ namespace mxTypes {
     template <typename T>
     constexpr bool typeNeedsMxCellStorage_v = typeNeedsMxCellStorage<T>::value;
 
+    template <typename T>
+    struct typeDumpVectorOneAtATime
+    {
+        static constexpr bool value = false;
+    };
+    template <typename T>
+    constexpr bool typeDumpVectorOneAtATime_v = typeDumpVectorOneAtATime<T>::value;
+
     template <mxClassID T>
     constexpr mxClassID MxClassToType()
     {
@@ -127,39 +135,80 @@ namespace mxTypes {
             // output cell array
             temp = mxCreateCellMatrix(static_cast<mwSize>(data_.size()), 1);
             mwIndex i = 0;
-            for (auto&& item : data_)
-                mxSetCell(temp, i++, ToMatlab(item,std::forward<Extras>(extras_)...));
+            if constexpr (!typeDumpVectorOneAtATime_v<V>)
+            {
+                for (auto&& item : data_)
+                    mxSetCell(temp, i++, ToMatlab(item, std::forward<Extras>(extras_)...));
+            }
+            else
+            {
+                // iterate backward, remove item that was just converted to matlab
+                i = static_cast<mwSize>(data_.size());
+                for (auto rit = std::rbegin(data_); rit != std::rend(data_); )
+                {
+                    mxSetCell(temp, --i, ToMatlab(*rit, std::forward<Extras>(extras_)...));
+                    rit = decltype(rit)(data_.erase(std::next(rit).base()));
+                }
+            }
         }
         else if constexpr (typeToMxClass_v<V> != mxSTRUCT_CLASS)
         {
             // output array
             auto storage = static_cast<V*>(mxGetData(temp = mxCreateUninitNumericMatrix(static_cast<mwSize>(data_.size()), 1, typeToMxClass_v<V>, mxREAL)));
 
-            if constexpr (is_guaranteed_contiguous_v<Cont>)
+            if (!data_.empty())
             {
-                // contiguous storage, can memcopy
-                if (data_.size())
+                if constexpr (is_guaranteed_contiguous_v<Cont> && !typeDumpVectorOneAtATime_v<V>)
+                {
+                    // contiguous storage, can memcopy, unless want to remove each element after its copied
                     memcpy(storage, &data_[0], data_.size() * sizeof(data_[0]));
-            }
-            else
-            {
-                // non-contiguous storage, copy one at a time
-                for (auto&& item : data_)
-                    (*storage++) = item;
+                }
+                else
+                {
+                    // non-contiguous storage or one at a time explicitly requested: copy one at a time
+                    if constexpr (!typeDumpVectorOneAtATime_v<V>)
+                    {
+                        for (auto&& item : data_)
+                            (*storage++) = item;
+                    }
+                    else
+                    {
+                        // iterate backward, remove item that was just converted to matlab
+                        storage += data_.size();
+                        for (auto rit = std::rbegin(data_); rit != std::rend(data_); )
+                        {
+                            (*--storage) = *rit;
+                            rit = decltype(rit)(data_.erase(std::next(rit).base()));
+                        }
+                    }
+                }
             }
         }
         else // NB: if constexpr (typeToMxClass_v<V> == mxSTRUCT_CLASS)
         {
             // output array of structs
             mwIndex i = 0;
-            if (!data_.size())
+            if (data_.empty())
                 if constexpr (std::is_default_constructible_v<V>)   // try hard to produce struct with empty fields
                     temp = ToMatlab(V{}, i++, 0, temp, std::forward<Extras>(extras_)...);
                 else    // fall back to just empty
                     temp = mxCreateDoubleMatrix(0, 0, mxREAL);
             else
-                for (auto&& item : data_)
-                    temp = ToMatlab(item, i++, static_cast<mwSize>(data_.size()), temp, std::forward<Extras>(extras_)...);
+                if constexpr (!typeDumpVectorOneAtATime_v<V>)
+                {
+                    for (auto&& item : data_)
+                        temp = ToMatlab(item, i++, static_cast<mwSize>(data_.size()), temp, std::forward<Extras>(extras_)...);
+                }
+                else
+                {
+                    // iterate backward, remove item that was just converted to matlab
+                    i = static_cast<mwSize>(data_.size());
+                    for (auto rit = std::rbegin(data_); rit != std::rend(data_); )
+                    {
+                        temp = ToMatlab(*rit, --i, static_cast<mwSize>(data_.size()), temp, std::forward<Extras>(extras_)...);
+                        rit = decltype(rit)(data_.erase(std::next(rit).base()));
+                    }
+                }
         }
         return temp;
     }
@@ -356,8 +405,22 @@ namespace mxTypes {
             // output cell array
             temp = mxCreateCellMatrix(static_cast<mwSize>(data_.size()), 1);
             mwIndex i = 0;
-            for (auto&& item : data_)
-                mxSetCell(temp, i++, ToMatlab(getFieldWrapper(item, std::forward<Fs>(fields)...)));
+            if constexpr (!typeDumpVectorOneAtATime_v<V>)
+            {
+                for (auto&& item : data_)
+                    mxSetCell(temp, i++, ToMatlab(getFieldWrapper(item, std::forward<Fs>(fields)...)));
+            }
+            else
+            {
+                // iterate backward, remove item that was just converted to matlab
+                i = static_cast<mwSize>(data_.size());
+                for (auto rit = std::rbegin(data_); rit != std::rend(data_); )
+                {
+                    mxSetCell(temp, --i, ToMatlab(getFieldWrapper(*rit, std::forward<Fs>(fields)...)));
+                    rit = decltype(rit)(data_.erase(std::next(rit).base()));
+                }
+            }
+
         }
         else if constexpr (typeToMxClass_v<U> != mxSTRUCT_CLASS)
         {
@@ -368,6 +431,22 @@ namespace mxTypes {
             {
                 for (auto&& item : data_)
                     (*storage++) = getFieldWrapper(item, std::forward<Fs>(fields)...);
+
+                if constexpr (!typeDumpVectorOneAtATime_v<V>)
+                {
+                    for (auto&& item : data_)
+                        (*storage++) = getFieldWrapper(item, std::forward<Fs>(fields)...);
+                }
+                else
+                {
+                    // iterate backward, remove item that was just converted to matlab
+                    storage += data_.size();
+                    for (auto rit = std::rbegin(data_); rit != std::rend(data_); )
+                    {
+                        (*--storage) = getFieldWrapper(*rit, std::forward<Fs>(fields)...);
+                        rit = decltype(rit)(data_.erase(std::next(rit).base()));
+                    }
+                }
             }
         }
         else // NB: if constexpr (typeToMxClass_v<U> == mxSTRUCT_CLASS)
