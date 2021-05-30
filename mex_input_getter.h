@@ -7,6 +7,7 @@
 #include <functional>
 #include <type_traits>
 #include <algorithm>
+#include <iterator>
 
 #include "mex_type_utils_fwd.h"
 #include "is_container_trait.h"
