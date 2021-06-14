@@ -154,13 +154,15 @@ namespace mxTypes {
         else if constexpr (typeToMxClass_v<V> != mxSTRUCT_CLASS)
         {
             // output array
-            auto storage = static_cast<V*>(mxGetData(temp = mxCreateUninitNumericMatrix(static_cast<mwSize>(data_.size()), 1, typeToMxClass_v<V>, mxREAL)));
+            static_assert(sizeof...(Extras) < 2, "Only 0 (normal case) or 1 (type tag dispatch) extra arguments to ToMatlab() are supported for this branch.");
+            using outputType = typename std::tuple_element<0, std::tuple<Extras..., V>>::type;  // if Extras... is an empty pack, V is output, else first type in Extras...
+            auto storage = static_cast<outputType*>(mxGetData(temp = mxCreateUninitNumericMatrix(static_cast<mwSize>(data_.size()), 1, typeToMxClass_v<outputType>, mxREAL)));
 
             if (!data_.empty())
             {
-                if constexpr (is_guaranteed_contiguous_v<Cont> && !typeDumpVectorOneAtATime_v<V>)
+                if constexpr (is_guaranteed_contiguous_v<Cont> && !typeDumpVectorOneAtATime_v<outputType> && sizeof...(Extras)==0)
                 {
-                    // contiguous storage, can memcopy, unless want to remove each element after its copied
+                    // contiguous storage, can memcopy, unless want to remove or convert each element after its copied
                     memcpy(storage, &data_[0], data_.size() * sizeof(data_[0]));
                 }
                 else
@@ -169,7 +171,7 @@ namespace mxTypes {
                     if constexpr (!typeDumpVectorOneAtATime_v<V>)
                     {
                         for (auto&& item : data_)
-                            (*storage++) = item;
+                            (*storage++) = static_cast<outputType>(item);
                     }
                     else
                     {
@@ -177,7 +179,7 @@ namespace mxTypes {
                         storage += data_.size();
                         for (auto rit = std::rbegin(data_); rit != std::rend(data_); )
                         {
-                            (*--storage) = *rit;
+                            (*--storage) = static_cast<outputType>(*rit);
                             rit = decltype(rit)(data_.erase(std::next(rit).base()));
                         }
                     }
