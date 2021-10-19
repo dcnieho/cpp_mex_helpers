@@ -434,9 +434,6 @@ namespace mxTypes {
 
             if (data_.size())
             {
-                for (auto&& item : data_)
-                    (*storage++) = getFieldWrapper(item, std::forward<Fs>(fields)...);
-
                 if constexpr (!typeDumpVectorOneAtATime_v<V>)
                 {
                     for (auto&& item : data_)
