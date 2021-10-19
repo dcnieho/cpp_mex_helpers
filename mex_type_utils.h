@@ -1,5 +1,6 @@
 #pragma once
 #include <type_traits>
+#include <functional>
 
 #include "mex_type_utils_fwd.h"
 #include "pack_utils.h"
@@ -97,10 +98,12 @@ namespace mxTypes {
             return "cell";
         else if constexpr (T == mxFUNCTION_CLASS)
             return "function";
+#ifndef IS_OCTAVE
         else if constexpr (T == mxOPAQUE_CLASS)
             return "opaque";
         else if constexpr (T == mxOBJECT_CLASS)
             return "object";
+#endif
         else if constexpr (T == mxSTRUCT_CLASS)
             return "struct";
         else
