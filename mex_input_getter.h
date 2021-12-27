@@ -85,7 +85,7 @@ namespace mxTypes
         template <typename OutputType>
         constexpr std::string buildCorrespondingMatlabTypeString_impl()
         {
-            if constexpr (is_container_v<OutputType> && !std::is_same_v<OutputType, std::string>)
+            if constexpr (Container<OutputType> && !std::is_same_v<OutputType, std::string>)
             {
                 if constexpr (is_specialization_v<typename OutputType::value_type, std::tuple> || is_specialization_v<typename OutputType::value_type, std::pair>)
                 {
@@ -158,14 +158,14 @@ namespace mxTypes
             bool special = true;
             if constexpr (std::is_arithmetic_v<T>)
                 special = false;
-            else if constexpr (is_container_v<T> && !std::is_same_v<T, std::string>)
+            else if constexpr (Container<T> && !std::is_same_v<T, std::string>)
             {
                 if constexpr (std::is_arithmetic_v<typename T::value_type>)
                     special = false;
             }
             if (!special)
             {
-                if constexpr (is_container_v<T>)
+                if constexpr (Container<T>)
                     out += " array";
                 else
                     out += " scalar";
@@ -205,21 +205,18 @@ namespace mxTypes
 
         // forward declaration
         template <typename T>
-        typename std::enable_if_t<!is_container_v<T>, bool>
-            checkInput_impl(const mxArray* inp_);
+        requires !Container<T>
+        bool checkInput_impl(const mxArray* inp_);
         template <typename Cont>
-        typename std::enable_if_t<is_container_v<Cont> &&
-            !is_specialization_v<typename Cont::value_type, std::pair> &&
-            !is_specialization_v<typename Cont::value_type, std::tuple>,
-            bool>
-            checkInput_impl(const mxArray* inp_);
+        requires Container<Cont> &&
+                !is_specialization_v<typename Cont::value_type, std::pair> &&
+                !is_specialization_v<typename Cont::value_type, std::tuple>
+        bool checkInput_impl(const mxArray* inp_);
         template<class Cont>
-        typename std::enable_if_t<
-            is_container_v<Cont> && (
-                is_specialization_v<typename Cont::value_type, std::pair> ||
-                is_specialization_v<typename Cont::value_type, std::tuple>),
-            bool>
-            checkInput_impl(const mxArray* inp_);
+        requires Container<Cont> && (
+            is_specialization_v<typename Cont::value_type, std::pair> ||
+            is_specialization_v<typename Cont::value_type, std::tuple>)
+        bool checkInput_impl(const mxArray* inp_);
         // end forward declaration
         template <typename T>
         bool checkInput_impl_cell(const mxArray* inp_)
@@ -245,12 +242,10 @@ namespace mxTypes
             return (checkInput_impl<Args>(mxGetCell(inp_, iRow_ + (Is)*nRow_))&& ...);
         }
         template<class Cont>
-        typename std::enable_if_t<
-            is_container_v<Cont> && (
-                is_specialization_v<typename Cont::value_type, std::pair> ||
-                is_specialization_v<typename Cont::value_type, std::tuple>),
-            bool>
-            checkInput_impl(const mxArray* inp_)
+        requires Container<Cont> && (
+            is_specialization_v<typename Cont::value_type, std::pair> ||
+            is_specialization_v<typename Cont::value_type, std::tuple>)
+        bool checkInput_impl(const mxArray* inp_)
         {
             using theTuple = typename Cont::value_type;
 
@@ -268,11 +263,10 @@ namespace mxTypes
             return true;
         }
         template <typename Cont>
-        typename std::enable_if_t<is_container_v<Cont> &&
+        requires Container<Cont> &&
             !is_specialization_v<typename Cont::value_type, std::pair> &&
-            !is_specialization_v<typename Cont::value_type, std::tuple>,
-            bool>
-            checkInput_impl(const mxArray* inp_)
+            !is_specialization_v<typename Cont::value_type, std::tuple>
+        bool checkInput_impl(const mxArray* inp_)
         {
             // early out for complex or sparse arguments, never wanted by us
             if (mxIsComplex(inp_) || mxIsSparse(inp_))
@@ -294,8 +288,8 @@ namespace mxTypes
             }
         }
         template <typename T>
-        typename std::enable_if_t<!is_container_v<T>, bool>
-            checkInput_impl(const mxArray* inp_)
+        requires !Container<T>
+        bool checkInput_impl(const mxArray* inp_)
         {
             // early out for complex or sparse arguments, never wanted by us
             if (mxIsComplex(inp_) || mxIsSparse(inp_))
@@ -346,14 +340,14 @@ namespace mxTypes
 
         // forward declarations
         template <typename Cont>
-        typename std::enable_if_t<is_container_v<Cont> &&
+        requires Container<Cont> &&
             !is_specialization_v<typename Cont::value_type, std::pair> &&
-            !is_specialization_v<typename Cont::value_type, std::tuple>,
-            Cont>
-            getValue_impl(const mxArray* inp_);
+            !is_specialization_v<typename Cont::value_type, std::tuple> &&
+            !is_specialization_v<         Cont, std::basic_string_view> // can't return a string view, would be dangling
+        Cont getValue_impl(const mxArray* inp_);
         template <typename T>
-        typename std::enable_if_t<!is_container_v<T>, T>
-            getValue_impl(const mxArray* inp_);
+        requires !Container<T>
+        T getValue_impl(const mxArray* inp_);
         // end forward declarations
 
         template <template <class...> class TP, class... Args, size_t... Is>
@@ -365,12 +359,10 @@ namespace mxTypes
                 return std::make_pair(getValue_impl<Args>(mxGetCell(inp_, iRow_ + (Is)*nRow_)) ...);
         }
         template<class Cont>
-        typename std::enable_if_t<
-                is_container_v<Cont> && (
-                    is_specialization_v<typename Cont::value_type, std::pair> ||
-                    is_specialization_v<typename Cont::value_type, std::tuple>),
-            Cont>
-            getValue_impl(const mxArray* inp_)
+        requires Container<Cont> && (
+            is_specialization_v<typename Cont::value_type, std::pair> ||
+            is_specialization_v<typename Cont::value_type, std::tuple>)
+        Cont getValue_impl(const mxArray* inp_)
         {
             // get info about input (we've already checked that number of column is equal to tuple length)
             auto nRow = mxGetM(inp_);
@@ -385,11 +377,11 @@ namespace mxTypes
         }
 
         template <typename Cont>
-        typename std::enable_if_t<is_container_v<Cont> && 
-                !is_specialization_v<typename Cont::value_type, std::pair> &&
-                !is_specialization_v<typename Cont::value_type, std::tuple>,
-            Cont>
-            getValue_impl(const mxArray* inp_)
+        requires Container<Cont> &&
+            !is_specialization_v<typename Cont::value_type, std::pair> &&
+            !is_specialization_v<typename Cont::value_type, std::tuple> &&
+            !is_specialization_v<         Cont            , std::basic_string_view> // can't return a string view, would be dangling
+        Cont getValue_impl(const mxArray* inp_)
         {
             if constexpr (std::is_same_v<Cont, std::string>)
             {
@@ -418,8 +410,8 @@ namespace mxTypes
         }
 
         template <typename T>
-        typename std::enable_if_t<!is_container_v<T>, T>
-            getValue_impl(const mxArray* inp_)
+        requires !Container<T>
+        T getValue_impl(const mxArray* inp_)
         {
             if constexpr (is_specialization_v<T, std::pair> || is_specialization_v<T, std::tuple>)
                 return getValue_impl(inp_, T(), std::make_index_sequence<std::tuple_size_v<T>>{});
@@ -430,7 +422,11 @@ namespace mxTypes
         template <typename OutType, typename MatType, typename Converter>
         OutType getValue_impl(const mxArray* inp_, Converter conv_)
         {
-            if constexpr (is_container_v<OutType>)
+            if constexpr (is_specialization_v<MatType, std::basic_string_view>)
+                // if a string_view is the input to the converter function, get a
+                // temporary std::string instead, else we have a lifetime issue.
+                return std::invoke(conv_, getValue_impl<std::string>(inp_));
+            else if constexpr (Container<OutType>)
             {
                 OutType out;
                 if constexpr (typeNeedsMxCellStorage_v<OutType::value_type>)
@@ -492,8 +488,8 @@ namespace mxTypes
 
     // for optional input arguments, use std::optional<T> as return type
     template <typename OutputType, typename Converter = nullptr_t>
-    typename std::enable_if_t<is_specialization_v<OutputType, std::optional>, OutputType>
-        FromMatlab(int nrhs, const mxArray* prhs[], size_t idx_, std::string_view funcID_, size_t offset_, Converter conv_ = nullptr)
+    requires is_specialization_v<OutputType, std::optional>
+    OutputType FromMatlab(int nrhs, const mxArray* prhs[], size_t idx_, std::string_view funcID_, size_t offset_, Converter conv_ = nullptr)
     {
         using ValueType = typename OutputType::value_type;
 
@@ -511,8 +507,8 @@ namespace mxTypes
 
     // for required arguments
     template <typename OutputType, typename Converter = nullptr_t>
-    typename std::enable_if_t<!is_specialization_v<OutputType, std::optional>, OutputType>
-        FromMatlab(int nrhs, const mxArray* prhs[], size_t idx_, std::string_view funcID_, size_t offset_, Converter conv_ = nullptr)
+    requires !is_specialization_v<OutputType, std::optional>
+    OutputType FromMatlab(int nrhs, const mxArray* prhs[], size_t idx_, std::string_view funcID_, size_t offset_, Converter conv_ = nullptr)
     {
         // check element exists, is not empty and passes checks
         if (idx_>=nrhs || mxIsEmpty(prhs[idx_]) || !detail::checkInput<OutputType>(prhs[idx_], conv_))
