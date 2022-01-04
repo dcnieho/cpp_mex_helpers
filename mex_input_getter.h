@@ -421,7 +421,7 @@ namespace mxTypes
     OutputType FromMatlab(int nrhs, const mxArray* prhs[], size_t idx_, std::string_view funcID_, size_t offset_, Converter conv_ = nullptr)
     {
         // unwrap std::optional to get at desired type
-        bool constexpr hasOptionalOutput = is_specialization_v<OutputType, std::optional>;
+        bool constexpr outputIsOptional = is_specialization_v<OutputType, std::optional>;
         using UnwrappedOutputType = unwrapOptional<OutputType>::type;
 
         // check converter, if provided
@@ -434,14 +434,15 @@ namespace mxTypes
         }
 
         // check element exists and is not empty
-        bool haveElement = idx_ >= nrhs || mxIsEmpty(prhs[idx_]);
-        if constexpr (hasOptionalOutput)
-            return std::nullopt;
+        bool haveElement = idx_ < nrhs && !mxIsEmpty(prhs[idx_]);
+        if constexpr (outputIsOptional)
+            if (!haveElement)
+                return std::nullopt;
 
         // see if element passes checks. If not, thats an error for an optional value
         auto inp = prhs[idx_];
-        if (!detail::checkInput<UnwrappedOutputType>(inp, conv_))
-            detail::buildAndThrowError<UnwrappedOutputType>(funcID_, idx_, offset_, nrhs, prhs, hasOptionalOutput, conv_);
+        if (!haveElement || !detail::checkInput<UnwrappedOutputType>(inp, conv_))
+            detail::buildAndThrowError<UnwrappedOutputType>(funcID_, idx_, offset_, nrhs, prhs, outputIsOptional, conv_);
 
         return detail::getValue<UnwrappedOutputType>(inp, conv_);
     }
