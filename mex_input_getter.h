@@ -200,9 +200,6 @@ namespace mxTypes
         template <template <class...> class TP, class... Args, size_t... Is>
         bool checkInput_tuple(const mxArray* inp_, TP<Args...>&&, std::index_sequence<Is...>, mwIndex iRow_ = 0, mwSize nRow_ = 1)
         {
-            if (!mxIsCell(inp_))
-                return false;
-
             return (checkInput<Args>(mxGetCell(inp_, iRow_ + (Is)*nRow_), nullptr) && ...);
         }
 
@@ -249,6 +246,9 @@ namespace mxTypes
                         is_specialization_v<typename OutputType::value_type, std::tuple>)
                     {
                         using theTuple = typename OutputType::value_type;
+
+                        if (!mxIsCell(inp_))
+                            return false;
 
                         // get info about input
                         auto nRow = mxGetM(inp_);
