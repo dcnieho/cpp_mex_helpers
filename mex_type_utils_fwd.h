@@ -65,10 +65,7 @@ namespace mxTypes {
             is_specialization_v<Cont<Args...>, std::unordered_map>
             )
         &&
-        (
-            std::is_same_v<typename Cont<Args...>::key_type, std::string> ||
             std::is_convertible_v<typename Cont<Args...>::key_type, std::string>
-            )
     mxArray* ToMatlab(Cont<Args...> data_);
     // sets
     template <template <class...> class Cont, class... Args>
