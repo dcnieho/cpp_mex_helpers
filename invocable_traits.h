@@ -13,24 +13,8 @@
 // piece of information is the result type, which you can get with
 // std::invoke_result.
 
-template <typename T>
-struct invocable_traits;
-
 namespace detail
 {
-    template <typename R, bool IsVariadic, typename... Args>
-    struct invocable_traits_free
-    {
-        static constexpr std::size_t arity = sizeof...(Args);
-        static constexpr auto is_variadic = IsVariadic;
-
-        using result_type = R;
-        using class_type = void;
-
-        template <std::size_t i>
-        using arg = typename std::tuple_element<i, std::tuple<Args...>>::type;
-    };
-
     template <typename R, typename C, bool IsVariadic, typename... Args>
     struct invocable_traits_class
     {
@@ -43,9 +27,15 @@ namespace detail
         template <std::size_t i>
         using arg = typename std::tuple_element<i, std::tuple<Args...>>::type;
     };
+
+    template <typename R, bool IsVariadic, typename... Args>
+    struct invocable_traits_free : public invocable_traits_class<R, void, IsVariadic, Args...> {};
 }
 
-#define SPEC(cv,...)                                                                \
+template <typename T>
+struct invocable_traits;
+
+#define INVOCABLE_TRAITS_SPEC(cv,...)                                               \
 /* handle functions, with all possible iterations of reference and noexcept */      \
 template <typename R, typename... Args>                                             \
 struct invocable_traits<R(Args... __VA_OPT__(,) __VA_ARGS__) cv>                    \
@@ -65,7 +55,7 @@ struct invocable_traits<R(Args...__VA_OPT__(,) __VA_ARGS__) cv & noexcept>      
 template <typename R, typename... Args>                                             \
 struct invocable_traits<R(Args...__VA_OPT__(,) __VA_ARGS__) cv && noexcept>         \
     : public detail::invocable_traits_free<R,0 __VA_OPT__(+1),Args...> {};          \
-/* handle pointers to member functions, all possible iterations of reference and noexcept */\
+/* handle pointers to member functions (incl. iterations of reference and noexcept) */\
 template <typename C, typename R, typename... Args>                                 \
 struct invocable_traits<R(C::*)(Args...__VA_OPT__(,) __VA_ARGS__) cv>               \
     : public detail::invocable_traits_class<R,C,0 __VA_OPT__(+1),Args...> {};       \
@@ -92,37 +82,54 @@ struct invocable_traits<R C::* cv>                                              
 ) /* end __VA_OPT___*/
 
 // cover all const and volatile permutations
-SPEC(, )
-SPEC(const, )
-SPEC(volatile, )
-SPEC(const volatile, )
+INVOCABLE_TRAITS_SPEC(, )
+INVOCABLE_TRAITS_SPEC(const, )
+INVOCABLE_TRAITS_SPEC(volatile, )
+INVOCABLE_TRAITS_SPEC(const volatile, )
 // and also variadic function versions
-SPEC(, ...)
-SPEC(const, ...)
-SPEC(volatile, ...)
-SPEC(const volatile, ...)
+INVOCABLE_TRAITS_SPEC(, ...)
+INVOCABLE_TRAITS_SPEC(const, ...)
+INVOCABLE_TRAITS_SPEC(volatile, ...)
+INVOCABLE_TRAITS_SPEC(const volatile, ...)
 
 // pointers to functions
 template <typename R, typename... Args>
-struct invocable_traits<R(*)(Args...)> : public invocable_traits<R(Args...)> {};
+struct invocable_traits<R(*)(Args...)>                  : public invocable_traits<R(Args...)> {};
 template <typename R, typename... Args>
-struct invocable_traits<R(*)(Args...) noexcept> : public invocable_traits<R(Args...)> {};
+struct invocable_traits<R(*)(Args...) noexcept>         : public invocable_traits<R(Args...)> {};
 template <typename R, typename... Args>
-struct invocable_traits<R(*)(Args..., ...)> : public invocable_traits<R(Args..., ...)> {};
+struct invocable_traits<R(*)(Args..., ...)>             : public invocable_traits<R(Args..., ...)> {};
 template <typename R, typename... Args>
-struct invocable_traits<R(*)(Args..., ...) noexcept> : public invocable_traits<R(Args..., ...)> {};
+struct invocable_traits<R(*)(Args..., ...) noexcept>    : public invocable_traits<R(Args..., ...)> {};
 // references to functions
 template <typename R, typename... Args>
-struct invocable_traits<R(&)(Args...)> : public invocable_traits<R(Args...)> {};
+struct invocable_traits<R(&)(Args...)>                  : public invocable_traits<R(Args...)> {};
 template <typename R, typename... Args>
-struct invocable_traits<R(&)(Args...) noexcept> : public invocable_traits<R(Args...)> {};
+struct invocable_traits<R(&)(Args...) noexcept>         : public invocable_traits<R(Args...)> {};
 template <typename R, typename... Args>
-struct invocable_traits<R(&)(Args..., ...)> : public invocable_traits<R(Args..., ...)> {};
+struct invocable_traits<R(&)(Args..., ...)>             : public invocable_traits<R(Args..., ...)> {};
 template <typename R, typename... Args>
-struct invocable_traits<R(&)(Args..., ...) noexcept> : public invocable_traits<R(Args..., ...)> {};
+struct invocable_traits<R(&)(Args..., ...) noexcept>    : public invocable_traits<R(Args..., ...)> {};
 
 // get at operator() of any struct/class defining it (this includes lambdas)
+// bit of machinery for better error messages
+namespace detail {
+    template <typename T>
+    concept HasCallOperator = requires(T)
+    {
+        std::declval<T>().operator();
+    };
+
+    template <typename T, bool isCallable>
+    struct invocable_traits_extract : invocable_traits<decltype(&T::operator())> {};
+
+    template <typename T>
+    struct invocable_traits_extract<T, false>
+    {
+        static_assert(std::is_class_v<T>, "invocable_traits: passed type is not a class, and thus cannot have an operator()");
+        static_assert(HasCallOperator<T>, "invocable_traits: passed type is a class that doesn't have an operator()");
+    };
+}
+
 template <typename T>
-struct invocable_traits
-    : invocable_traits<decltype(&std::decay_t<T>::operator())>
-{};
+struct invocable_traits : detail::invocable_traits_extract<std::decay_t<T>, detail::HasCallOperator<T>> {};
