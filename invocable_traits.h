@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <tuple>
 #include <type_traits>
 
@@ -15,6 +16,14 @@
 
 namespace detail
 {
+    template <std::size_t i, typename... Args>
+    struct invocable_traits_arg_impl
+    {
+        static_assert(i < sizeof...(Args), "Requested argument type out of bounds (function does not declare this many arguments)");
+
+        using type = std::tuple_element_t<i, std::tuple<Args...>>;
+    };
+
     template <typename R, typename C, bool IsVariadic, typename... Args>
     struct invocable_traits_class
     {
@@ -25,7 +34,7 @@ namespace detail
         using class_type = C;
 
         template <std::size_t i>
-        using arg = typename std::tuple_element<i, std::tuple<Args...>>::type;
+        using arg = typename invocable_traits_arg_impl<i, Args...>::type;
     };
 
     template <typename R, bool IsVariadic, typename... Args>
@@ -126,8 +135,15 @@ namespace detail {
     template <typename T>
     struct invocable_traits_extract<T, false>
     {
-        static_assert(std::is_class_v<T>, "invocable_traits: passed type is not a class, and thus cannot have an operator()");
-        static_assert(HasCallOperator<T>, "invocable_traits: passed type is a class that doesn't have an operator()");
+        static_assert(std::is_class_v<T>, "passed type is not a class, and thus cannot have an operator()");
+        static_assert(!std::is_class_v<T> || HasCallOperator<T>, "passed type is a class that doesn't have an operator()");
+
+        // to reduce excessive compiler error output
+        static constexpr std::size_t arity = 0;
+        static constexpr auto is_variadic = false;
+        using result_type = void;
+        using class_type = void;
+        template <size_t i> struct arg { using type = void; };
     };
 }
 
