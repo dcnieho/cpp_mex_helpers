@@ -111,15 +111,6 @@ namespace detail
     struct invocable_traits<R(*)(Args..., ...)>             : public invocable_traits<R(Args..., ...)> {};
     template <typename R, typename... Args>
     struct invocable_traits<R(*)(Args..., ...) noexcept>    : public invocable_traits<R(Args..., ...)> {};
-    // references to functions
-    template <typename R, typename... Args>
-    struct invocable_traits<R(&)(Args...)>                  : public invocable_traits<R(Args...)> {};
-    template <typename R, typename... Args>
-    struct invocable_traits<R(&)(Args...) noexcept>         : public invocable_traits<R(Args...)> {};
-    template <typename R, typename... Args>
-    struct invocable_traits<R(&)(Args..., ...)>             : public invocable_traits<R(Args..., ...)> {};
-    template <typename R, typename... Args>
-    struct invocable_traits<R(&)(Args..., ...) noexcept>    : public invocable_traits<R(Args..., ...)> {};
 
 
     // get at operator() of any struct/class defining it (this includes lambdas)
