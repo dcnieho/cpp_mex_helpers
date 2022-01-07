@@ -108,7 +108,7 @@ namespace mxTypes
         {
             if constexpr (!std::is_same_v<Converter, std::nullptr_t>)
             {
-                using ConverterInputType = std::decay_t<invocable_traits<Converter>::template arg<0>>;
+                using ConverterInputType = std::decay_t<invocable_traits<Converter>::template arg_t<0>>;
                 if constexpr (Container<OutputType>)
                 {
                     using InputContainerType = replace_specialization_type_t<OutputType, ConverterInputType>;
@@ -224,7 +224,7 @@ namespace mxTypes
             if constexpr (!std::is_same_v<Converter, std::nullptr_t>)
             {
                 // check for input data type of converter
-                using ConverterInputType = std::decay_t<invocable_traits<Converter>::template arg<0>>;
+                using ConverterInputType = std::decay_t<invocable_traits<Converter>::template arg_t<0>>;
                 if constexpr (Container<OutputType>)
                 {
                     using InputContainerType = replace_specialization_type_t<OutputType, ConverterInputType>;
@@ -312,7 +312,7 @@ namespace mxTypes
             if constexpr (!std::is_same_v<Converter, std::nullptr_t>)
             {
                 // apply converter function
-                using ConverterInputType = std::decay_t<invocable_traits<Converter>::template arg<0>>;
+                using ConverterInputType = std::decay_t<invocable_traits<Converter>::template arg_t<0>>;
                 if constexpr (is_specialization_v<ConverterInputType, std::basic_string_view>)
                     // if a string_view is the input to the converter function, get a
                     // temporary std::string instead, else we have a lifetime issue.
@@ -429,8 +429,7 @@ namespace mxTypes
         {
             using traits = invocable_traits<Converter>;
             static_assert(traits::arity == 1, "A conversion function, if provided, must be unary.");
-            using Arg = traits::template arg<0>;
-            static_assert(std::is_convertible_v<std::invoke_result_t<Converter, Arg>, UnwrappedOutputType>, "The conversion function's result type cannot be converted to the requested output type.");
+            static_assert(std::is_convertible_v<traits::invoke_result_t, UnwrappedOutputType>, "The conversion function's result type cannot be converted to the requested output type.");
         }
 
         // check element exists and is not empty
