@@ -5,23 +5,28 @@
 #include <type_traits>
 
 // inspired by https://github.com/kennytm/utils/blob/master/traits.hpp
-// and https://stackoverflow.com/a/28213747
-// This does not handle overloaded functions (which includes functors with
-// overloaded operator()), because the compiler would not be able to resolve
-// the overload without knowing the argument types and the cv- and noexcept-
-// qualifications. If you do know those already and can thus specify the
-// overload to the compiler, you do not need this class. The only remaining
-// piece of information is the result type, which you can get with
-// std::invoke_result.
+// and https://stackoverflow.com/a/28213747. Further thanks to G. Sliepen
+// on StackExchange CodeReview for numerous helpful suggestions.
+// 
+// Note that this machinery does not handle overloaded or templated functions.
+// It could not possibly do so, since these do not have a unique address.
+// If passed references or pointers to specific overloads or template 
+// instantiations, all works as expected.
 
 namespace detail
 {
-    template <std::size_t i, typename... Args>
+    template <bool, std::size_t i, typename... Args>
     struct invocable_traits_arg_impl
     {
-        static_assert(i < sizeof...(Args), "Requested argument type out of bounds (function does not declare this many arguments)");
-
         using type = std::tuple_element_t<i, std::tuple<Args...>>;
+    };
+    template <std::size_t i, typename... Args>
+    struct invocable_traits_arg_impl<false, i, Args...>
+    {
+        static_assert(i < sizeof...(Args), "Argument index out of bounds (queried callable does not declare this many arguments)");
+
+        // to reduce excessive compiler error output
+        using type = void;
     };
 
     template <
@@ -41,7 +46,7 @@ namespace detail
         using class_t           = C;
 
         template <std::size_t i>
-        using arg_t = typename invocable_traits_arg_impl<i, Args...>::type;
+        using arg_t = typename invocable_traits_arg_impl<i < sizeof...(Args), i, Args...>::type;
     };
 
     template <
