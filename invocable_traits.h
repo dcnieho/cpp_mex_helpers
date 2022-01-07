@@ -117,18 +117,18 @@ namespace detail
     INVOCABLE_TRAITS_SPEC(const,, ...)
     INVOCABLE_TRAITS_SPEC(,volatile, ...)
     INVOCABLE_TRAITS_SPEC(const, volatile, ...)
+    // clean up
     #undef INVOCABLE_TRAITS_SPEC
+    #undef IS_NONEMPTY
 
-    /* pointers to data members */
+    // pointers to data members
     template <typename C, typename R>
     struct invocable_traits_impl<R C::*>
         : public invocable_traits_class<R,
                                         std::invoke_result_t<R C::*,C>,
                                         C,
-                                        false,
-                                        false,
-                                        false,
-                                        false> {};
+                                        false, false, false, false
+                                       > {};
 
     // pointers to functions
     template <typename R, typename... Args>
@@ -170,6 +170,8 @@ namespace detail
         template <size_t i> struct arg_t { using type = void; };
     };
 
+    // catch all that doesn't match the various function signatures above
+    // If T has an operator(), we go with that. Else, issue error message.
     template <typename T>
     struct invocable_traits_impl : invocable_traits_extract<T, HasCallOperator<T>> {};
 }
