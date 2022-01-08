@@ -221,5 +221,9 @@ namespace detail
 
 template <typename T, typename... OverloadArgs>
 struct invocable_traits : detail::invocable_traits_impl<std::remove_reference_t<T>, OverloadArgs...> {};
+template <typename T, typename... OverloadArgs>
+struct invocable_traits<std::reference_wrapper<T>, OverloadArgs...> : detail::invocable_traits_impl<std::remove_reference_t<T>, OverloadArgs...> {};
 template <typename T>
 struct invocable_traits<T> : detail::invocable_traits_impl<std::decay_t<T>> {};
+template <typename T>
+struct invocable_traits<std::reference_wrapper<T>> : detail::invocable_traits_impl<std::decay_t<T>> {};
