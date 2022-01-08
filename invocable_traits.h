@@ -158,15 +158,18 @@ namespace detail
     {
         t.operator();
     };
-    // check if we can get operator(),
-    // will fail if not because overloaded (assuming above HasCallOperator does pass)
+    // check if we can get operator().
+    // If it fails (and assuming above HasCallOperator does pass),
+    // this is because the operator is overloaded or templated
     template <typename T>
     concept CanGetCallOperator = requires
     {
         invocable_traits_impl<decltype(&T::operator())>();
     };
-    // check if we can get an operator() that takes the specified input arguments,
-    // will fail only if not (assuming above HasCallOperator does pass)
+    // check if we can get an operator() that takes the specified arguments types.
+    // If it fails (and assuming above HasCallOperator does pass),
+    // an operator() with this specified cv- and ref-qualified argument types does
+    // not exist.
     template <typename C, typename... OverloadArgs>
     concept HasSpecificCallOperator = requires
     {
@@ -200,7 +203,7 @@ namespace detail
     {
         static_assert(std::is_class_v<T>, "passed type is not a class, and thus cannot have an operator()");
         static_assert(!std::is_class_v<T> || HasCallOperator<T>, "passed type is a class that doesn't have an operator()");
-        static_assert(!(!std::is_class_v<T> || HasCallOperator<T>) || CanGetCallOperator<T>, "passed type is a class that has an overloaded operator(), specify argument types in invocable_traits invocation to disambiguate which overload you wish to use");
+        static_assert(!(!std::is_class_v<T> || HasCallOperator<T>) || CanGetCallOperator<T>, "passed type is a class that has an overloaded or templated operator(), specify argument types in invocable_traits invocation to disambiguate the operator() signature you wish to use");
     };
 
     template <typename T, typename... OverloadArgs>
