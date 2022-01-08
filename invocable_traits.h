@@ -142,65 +142,22 @@ namespace detail
     };
     // check if we can get operator(), will fail if overloaded (assuming above HasCallOperator does pass)
     template <typename T>
-    concept CanGetCallOperator = requires(T)
+    concept CanGetCallOperator = requires
     {
         invocable_traits_impl<decltype(&T::operator())>();
     };
 
     // machinery to select a specific overloaded operator()
-#   define MAKE_CONST(...) __VA_OPT__(const)
+#   define MAKE_CONST(...)    __VA_OPT__(const)
 #   define MAKE_VOLATILE(...) __VA_OPT__(volatile)
 #   define MAKE_NOEXCEPT(...) __VA_OPT__(noexcept)
 #   define MAKE_VARIADIC(...) __VA_OPT__(, ...)
-#   define DECLARE_CONCEPT_NAME(c,vo,e,va) HasSpecificCallOperator##c##va##e##vo
-#   define DECLARE_CONCEPT(c,vo,e,va)                   \
-    template <typename C, typename... OverloadArgs>     \
-    concept DECLARE_CONCEPT_NAME(c,vo,e,va) =           \
-        requires (std::invoke_result_t<C, OverloadArgs...>(C::* func)(OverloadArgs... MAKE_VARIADIC(va)) MAKE_CONST(c) MAKE_VOLATILE(vo) MAKE_NOEXCEPT(e))\
-    { func = &C::operator(); };
-
-    template <typename C, typename... OverloadArgs>
-    concept HasSpecificCallOperatorNone =
-        requires (std::invoke_result_t<C, OverloadArgs...>(C::* func)(OverloadArgs...))
-    { func = &C::operator(); };
-    DECLARE_CONCEPT(, Va, , )
-    DECLARE_CONCEPT(, , E, )
-    DECLARE_CONCEPT(, Va, E, )
-    DECLARE_CONCEPT(, , , Vo)
-    DECLARE_CONCEPT(, Va, , Vo)
-    DECLARE_CONCEPT(, , E, Vo)
-    DECLARE_CONCEPT(, Va, E, Vo)
-    DECLARE_CONCEPT(C, , , )
-    DECLARE_CONCEPT(C, Va, , )
-    DECLARE_CONCEPT(C, , E, )
-    DECLARE_CONCEPT(C, Va, E, )
-    DECLARE_CONCEPT(C, , , Vo)
-    DECLARE_CONCEPT(C, Va, , Vo)
-    DECLARE_CONCEPT(C, , E, Vo)
-    DECLARE_CONCEPT(C, Va, E, Vo)
-#   undef DECLARE_CONCEPT
-
-#   define MAKE_CONCEPT_SIGNATURE(c,vo,e,va) DECLARE_CONCEPT_NAME(c,vo,e,va)<C, OverloadArgs...>
-
-    template <typename C, typename... OverloadArgs>
-    concept HasSpecificCallOperator = HasCallOperator<C> &&
-        (HasSpecificCallOperatorNone<C, OverloadArgs...> || MAKE_CONCEPT_SIGNATURE(, Va, , ) || MAKE_CONCEPT_SIGNATURE(, , E, ) || MAKE_CONCEPT_SIGNATURE(, Va, E, ) || MAKE_CONCEPT_SIGNATURE(, , , Vo) || MAKE_CONCEPT_SIGNATURE(, Va, , Vo) || MAKE_CONCEPT_SIGNATURE(, , E, Vo) || MAKE_CONCEPT_SIGNATURE(, Va, E, Vo) || MAKE_CONCEPT_SIGNATURE(C, , , ) || MAKE_CONCEPT_SIGNATURE(C, Va, , ) || MAKE_CONCEPT_SIGNATURE(C, , E, ) || MAKE_CONCEPT_SIGNATURE(C, Va, E, ) || MAKE_CONCEPT_SIGNATURE(C, , , Vo) || MAKE_CONCEPT_SIGNATURE(C, Va, , Vo) || MAKE_CONCEPT_SIGNATURE(C, , E, Vo) || MAKE_CONCEPT_SIGNATURE(C, Va, E, Vo));
-    ;
-
 #   define DEFINE_RESOLVE_OVERLOAD(c,vo,e,va)           \
     template <typename C, typename... OverloadArgs>     \
-    requires MAKE_CONCEPT_SIGNATURE(c,vo,e,va)          \
-    auto invocable_traits_resolve_overload()            \
-    {                                                   \
-        return static_cast<std::invoke_result_t<C, OverloadArgs...>(C::*)(OverloadArgs... MAKE_VARIADIC(va)) MAKE_CONST(c) MAKE_VOLATILE(vo) MAKE_NOEXCEPT(e)>(&C::operator());\
-    };
+        auto invocable_traits_resolve_overload(std::invoke_result_t<C, OverloadArgs...>(C::*func)(OverloadArgs... MAKE_VARIADIC(va)) MAKE_CONST(c) MAKE_VOLATILE(vo) MAKE_NOEXCEPT(e))\
+    { return func; };
 
-    template <typename C, typename... OverloadArgs>
-    requires HasSpecificCallOperatorNone<C, OverloadArgs...>
-    auto invocable_traits_resolve_overload()
-    {
-        return static_cast<std::invoke_result_t<C, OverloadArgs...>(C::*)(OverloadArgs...)>(&C::operator());
-    };
+    DEFINE_RESOLVE_OVERLOAD(, , , )
     DEFINE_RESOLVE_OVERLOAD( ,Va, , )
     DEFINE_RESOLVE_OVERLOAD( , ,E, )
     DEFINE_RESOLVE_OVERLOAD( ,Va,E, )
@@ -221,13 +178,19 @@ namespace detail
 #   undef MAKE_VOLATILE
 #   undef MAKE_NOEXCEPT
 #   undef MAKE_VARIADIC
-#   undef DECLARE_CONCEPT_NAME
-#   undef MAKE_CONCEPT_SIGNATURE
 #   undef DEFINE_RESOLVE_OVERLOAD
+
+    // check if we can get an operator() that takes the specified input arguments
+    template <typename C, typename... OverloadArgs>
+    concept HasSpecificCallOperator =
+        HasCallOperator<C> && requires
+    {
+        invocable_traits_impl<std::decay_t<decltype(invocable_traits_resolve_overload<C, OverloadArgs...>(&C::operator()))>>();
+    };
 
     // specific overloaded operator() is available, use it for analysis
     template <typename T, bool, typename... OverloadArgs>
-    struct invocable_traits_extract : invocable_traits_impl<std::decay_t<decltype(invocable_traits_resolve_overload<T, OverloadArgs...>())>> {};
+    struct invocable_traits_extract : invocable_traits_impl<std::decay_t<decltype(invocable_traits_resolve_overload<T, OverloadArgs...>(&T::operator()))>> {};
 
     // unambiguous operator() is available, use it for analysis
     template <typename T, bool B>
