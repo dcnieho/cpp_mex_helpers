@@ -128,12 +128,17 @@ namespace detail
     struct invocable_traits_impl<R(*)(Args..., ...) noexcept>   : public invocable_traits_impl<R(Args..., ...) noexcept> {};
 
 
-    // get at operator() of any struct/class defining it (this includes lambdas)
-    // bit of machinery for better error messages
+    // check if passed type has an operator(), can be true for struct/class, includes lambdas
     template <typename T>
     concept HasCallOperator = requires(T t)
     {
         t.operator();
+    };
+    // check if we can get operator(), will fail if overloaded (assuming above HasCallOperator does pass)
+    template <typename T>
+    concept CanGetCallOperator = requires(T)
+    {
+        invocable_traits_impl<decltype(&T::operator())>();
     };
 
     template <typename T, bool isCallable>
@@ -144,6 +149,7 @@ namespace detail
     {
         static_assert(std::is_class_v<T>, "passed type is not a class, and thus cannot have an operator()");
         static_assert(!std::is_class_v<T> || HasCallOperator<T>, "passed type is a class that doesn't have an operator()");
+        static_assert(!(!std::is_class_v<T> || HasCallOperator<T>) || CanGetCallOperator<T>, "passed type is a class that has an overloaded operator(), specify argument types in invocable_traits invocation to disambiguate which overload you wish to use");
 
         // to reduce excessive compiler error output
         static constexpr std::size_t arity = 0;
@@ -160,7 +166,7 @@ namespace detail
     // catch all that doesn't match the various function signatures above
     // If T has an operator(), we go with that. Else, issue error message.
     template <typename T>
-    struct invocable_traits_impl : invocable_traits_extract<T, HasCallOperator<T>> {};
+    struct invocable_traits_impl : invocable_traits_extract<T, HasCallOperator<T> && CanGetCallOperator<T>> {};
 }
 
 template <typename T>
