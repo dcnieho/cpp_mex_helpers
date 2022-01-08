@@ -152,14 +152,6 @@ namespace detail
 #   undef MAKE_NOEXCEPT
 #   undef MAKE_VARIADIC
 
-    // specific overloaded operator() is available, use it for analysis
-    template <typename C, bool, typename... OverloadArgs>
-    struct invocable_traits_extract : invocable_traits_impl<std::decay_t<decltype(invocable_traits_resolve_overload<C, OverloadArgs...>(&C::operator()))>> {};
-
-    // unambiguous operator() is available, use it for analysis
-    template <typename C, bool B>
-    struct invocable_traits_extract<C, B> : invocable_traits_impl<decltype(&C::operator())> {};
-
     // check if passed type has an operator(), can be true for struct/class, includes lambdas
     template <typename C>
     concept HasCallOperator = requires(C t)
@@ -168,18 +160,26 @@ namespace detail
     };
     // check if we can get operator(),
     // will fail if not because overloaded (assuming above HasCallOperator does pass)
-    template <typename C>
+    template <typename T>
     concept CanGetCallOperator = requires
     {
-        invocable_traits_extract<C, true>();
+        invocable_traits_impl<decltype(&T::operator())>();
     };
     // check if we can get an operator() that takes the specified input arguments,
     // will fail only if not (assuming above HasCallOperator does pass)
     template <typename C, typename... OverloadArgs>
     concept HasSpecificCallOperator = requires
     {
-        invocable_traits_extract<C, true, OverloadArgs...>();
+        invocable_traits_resolve_overload<C, OverloadArgs...>(&C::operator());
     };
+
+    // specific overloaded operator() is available, use it for analysis
+    template <typename C, bool, typename... OverloadArgs>
+    struct invocable_traits_extract : invocable_traits_impl<std::decay_t<decltype(invocable_traits_resolve_overload<C, OverloadArgs...>(&C::operator()))>> {};
+
+    // unambiguous operator() is available, use it for analysis
+    template <typename C, bool B>
+    struct invocable_traits_extract<C, B> : invocable_traits_impl<decltype(&C::operator())> {};
 
     // to reduce excessive compiler error output
     struct invocable_traits_error
