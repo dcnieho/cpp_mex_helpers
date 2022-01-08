@@ -62,63 +62,15 @@ namespace detail
     struct invocable_traits_free : public invocable_traits_class<Rd, Ri, void, IsConst, isVolatile, isNoexcept, IsVariadic, Args...> {};
 
 
+    // machinery to extract exact function signature and qualifications
     template <typename T, typename... OverloadArgs>
     struct invocable_traits_impl;
-
-    #define IS_NONEMPTY(...) 0 __VA_OPT__(+1)
-
-    #define INVOCABLE_TRAITS_SPEC(c,v,e,...)                                            \
-    /* functions, including noexcept versions */                                        \
-    template <typename R, typename... Args>                                             \
-    struct invocable_traits_impl<R(Args... __VA_OPT__(,) __VA_ARGS__) c v e>            \
-        : public invocable_traits_free<                                                 \
-            R,                                                                          \
-            std::invoke_result_t<R(Args... __VA_OPT__(,) __VA_ARGS__) c v e,Args...>,   \
-            IS_NONEMPTY(c),                                                             \
-            IS_NONEMPTY(v),                                                             \
-            IS_NONEMPTY(e),                                                             \
-            IS_NONEMPTY(__VA_ARGS__),                                                   \
-            Args...> {};                                                                \
-    /* pointers to member functions, including noexcept versions) */                    \
-    template <typename C, typename R, typename... Args>                                 \
-    struct invocable_traits_impl<R(C::*)(Args...__VA_OPT__(,) __VA_ARGS__) c v e>       \
-        : public invocable_traits_class<                                                \
-            R,                                                                          \
-            std::invoke_result_t<R(C::*)(Args...__VA_OPT__(,) __VA_ARGS__) c v e,C,Args...>,  \
-            C,                                                                          \
-            IS_NONEMPTY(c),                                                             \
-            IS_NONEMPTY(v),                                                             \
-            IS_NONEMPTY(e),                                                             \
-            IS_NONEMPTY(__VA_ARGS__),                                                   \
-            Args...> {};
-
-    // cover all const, volatile and noexcept permutations
-    INVOCABLE_TRAITS_SPEC(,,, )
-    INVOCABLE_TRAITS_SPEC(const,,, )
-    INVOCABLE_TRAITS_SPEC(, volatile,, )
-    INVOCABLE_TRAITS_SPEC(const, volatile,, )
-    INVOCABLE_TRAITS_SPEC(,, noexcept, )
-    INVOCABLE_TRAITS_SPEC(const, , noexcept, )
-    INVOCABLE_TRAITS_SPEC(, volatile, noexcept, )
-    INVOCABLE_TRAITS_SPEC(const, volatile, noexcept )
-    // and also variadic function versions
-    INVOCABLE_TRAITS_SPEC(,,, ...)
-    INVOCABLE_TRAITS_SPEC(const,,, ...)
-    INVOCABLE_TRAITS_SPEC(,volatile,, ...)
-    INVOCABLE_TRAITS_SPEC(const, volatile,, ...)
-    INVOCABLE_TRAITS_SPEC(,, noexcept, ...)
-    INVOCABLE_TRAITS_SPEC(const,, noexcept, ...)
-    INVOCABLE_TRAITS_SPEC(,volatile, noexcept, ...)
-    INVOCABLE_TRAITS_SPEC(const, volatile, noexcept, ...)
-    // clean up
-    #undef INVOCABLE_TRAITS_SPEC
-    #undef IS_NONEMPTY
 
     // pointers to data members
     template <typename C, typename R>
     struct invocable_traits_impl<R C::*>
         : public invocable_traits_class<R,
-                                        std::invoke_result_t<R C::*,C>,
+                                        std::invoke_result_t<R C::*, C>,
                                         C,
                                         false, false, false, false
                                        > {};
@@ -133,6 +85,72 @@ namespace detail
     template <typename R, typename... Args>
     struct invocable_traits_impl<R(*)(Args..., ...) noexcept>   : public invocable_traits_impl<R(Args..., ...) noexcept> {};
 
+#   define IS_NONEMPTY(...) 0 __VA_OPT__(+1)
+#   define MAKE_CONST(...)    __VA_OPT__(const)
+#   define MAKE_VOLATILE(...) __VA_OPT__(volatile)
+#   define MAKE_NOEXCEPT(...) __VA_OPT__(noexcept)
+#   define MAKE_VARIADIC(...) __VA_OPT__(, ...)
+
+    // functions, pointers to member functions and machinery to select a specific overloaded operator()
+#   define INVOCABLE_TRAITS_SPEC(c,vo,e,va)                                             \
+    /* functions */                                                                     \
+    template <typename R, typename... Args>                                             \
+    struct invocable_traits_impl<R(Args... MAKE_VARIADIC(va))                           \
+                                 MAKE_CONST(c) MAKE_VOLATILE(vo) MAKE_NOEXCEPT(e)>      \
+        : public invocable_traits_free<                                                 \
+            R,                                                                          \
+            std::invoke_result_t<R(Args... MAKE_VARIADIC(va))                           \
+                                 MAKE_CONST(c) MAKE_VOLATILE(vo) MAKE_NOEXCEPT(e), Args...>,    \
+            IS_NONEMPTY(c),                                                             \
+            IS_NONEMPTY(vo),                                                            \
+            IS_NONEMPTY(e),                                                             \
+            IS_NONEMPTY(va),                                                            \
+            Args...> {};                                                                \
+    /* pointers to member functions */                                                  \
+    template <typename C, typename R, typename... Args>                                 \
+    struct invocable_traits_impl<R(C::*)(Args... MAKE_VARIADIC(va))                     \
+                                 MAKE_CONST(c) MAKE_VOLATILE(vo) MAKE_NOEXCEPT(e)>      \
+        : public invocable_traits_class<                                                \
+            R,                                                                          \
+            std::invoke_result_t<R(C::*)(Args...MAKE_VARIADIC(va))                      \
+                                 MAKE_CONST(c) MAKE_VOLATILE(vo) MAKE_NOEXCEPT(e), C, Args...>, \
+            C,                                                                          \
+            IS_NONEMPTY(c),                                                             \
+            IS_NONEMPTY(vo),                                                            \
+            IS_NONEMPTY(e),                                                             \
+            IS_NONEMPTY(va),                                                            \
+            Args...> {};                                                                \
+    /* machinery to select a specific overloaded operator() */                          \
+    template <typename C, typename... OverloadArgs>                                     \
+        auto invocable_traits_resolve_overload(std::invoke_result_t<C, OverloadArgs...>         \
+                                               (C::*func)(OverloadArgs... MAKE_VARIADIC(va))    \
+                                               MAKE_CONST(c) MAKE_VOLATILE(vo) MAKE_NOEXCEPT(e))\
+    { return func; };
+
+    // cover all const, volatile and noexcept permutations
+    INVOCABLE_TRAITS_SPEC( ,  , ,  )
+    INVOCABLE_TRAITS_SPEC( ,Va, ,  )
+    INVOCABLE_TRAITS_SPEC( ,  ,E,  )
+    INVOCABLE_TRAITS_SPEC( ,Va,E,  )
+    INVOCABLE_TRAITS_SPEC( ,  , ,Vo)
+    INVOCABLE_TRAITS_SPEC( ,Va, ,Vo)
+    INVOCABLE_TRAITS_SPEC( ,  ,E,Vo)
+    INVOCABLE_TRAITS_SPEC( ,Va,E,Vo)
+    INVOCABLE_TRAITS_SPEC(C,  , ,  )
+    INVOCABLE_TRAITS_SPEC(C,Va, ,  )
+    INVOCABLE_TRAITS_SPEC(C,  ,E,  )
+    INVOCABLE_TRAITS_SPEC(C,Va,E,  )
+    INVOCABLE_TRAITS_SPEC(C,  , ,Vo)
+    INVOCABLE_TRAITS_SPEC(C,Va, ,Vo)
+    INVOCABLE_TRAITS_SPEC(C,  ,E,Vo)
+    INVOCABLE_TRAITS_SPEC(C,Va,E,Vo)
+    // clean up
+#   undef INVOCABLE_TRAITS_SPEC
+#   undef IS_NONEMPTY
+#   undef MAKE_CONST
+#   undef MAKE_VOLATILE
+#   undef MAKE_NOEXCEPT
+#   undef MAKE_VARIADIC
 
     // check if passed type has an operator(), can be true for struct/class, includes lambdas
     template <typename T>
@@ -147,43 +165,9 @@ namespace detail
         invocable_traits_impl<decltype(&T::operator())>();
     };
 
-    // machinery to select a specific overloaded operator()
-#   define MAKE_CONST(...)    __VA_OPT__(const)
-#   define MAKE_VOLATILE(...) __VA_OPT__(volatile)
-#   define MAKE_NOEXCEPT(...) __VA_OPT__(noexcept)
-#   define MAKE_VARIADIC(...) __VA_OPT__(, ...)
-#   define DEFINE_RESOLVE_OVERLOAD(c,vo,e,va)           \
-    template <typename C, typename... OverloadArgs>     \
-        auto invocable_traits_resolve_overload(std::invoke_result_t<C, OverloadArgs...>(C::*func)(OverloadArgs... MAKE_VARIADIC(va)) MAKE_CONST(c) MAKE_VOLATILE(vo) MAKE_NOEXCEPT(e))\
-    { return func; };
-
-    DEFINE_RESOLVE_OVERLOAD(, , , )
-    DEFINE_RESOLVE_OVERLOAD( ,Va, , )
-    DEFINE_RESOLVE_OVERLOAD( , ,E, )
-    DEFINE_RESOLVE_OVERLOAD( ,Va,E, )
-    DEFINE_RESOLVE_OVERLOAD( , , ,Vo)
-    DEFINE_RESOLVE_OVERLOAD( ,Va, ,Vo)
-    DEFINE_RESOLVE_OVERLOAD( , ,E,Vo)
-    DEFINE_RESOLVE_OVERLOAD( ,Va,E,Vo)
-    DEFINE_RESOLVE_OVERLOAD(C, , , )
-    DEFINE_RESOLVE_OVERLOAD(C,Va, , )
-    DEFINE_RESOLVE_OVERLOAD(C, ,E, )
-    DEFINE_RESOLVE_OVERLOAD(C,Va,E, )
-    DEFINE_RESOLVE_OVERLOAD(C, , ,Vo)
-    DEFINE_RESOLVE_OVERLOAD(C,Va, ,Vo)
-    DEFINE_RESOLVE_OVERLOAD(C, ,E,Vo)
-    DEFINE_RESOLVE_OVERLOAD(C,Va,E,Vo)
-
-#   undef MAKE_CONST
-#   undef MAKE_VOLATILE
-#   undef MAKE_NOEXCEPT
-#   undef MAKE_VARIADIC
-#   undef DEFINE_RESOLVE_OVERLOAD
-
     // check if we can get an operator() that takes the specified input arguments
     template <typename C, typename... OverloadArgs>
-    concept HasSpecificCallOperator =
-        HasCallOperator<C> && requires
+    concept HasSpecificCallOperator = requires
     {
         invocable_traits_impl<std::decay_t<decltype(invocable_traits_resolve_overload<C, OverloadArgs...>(&C::operator()))>>();
     };
@@ -229,7 +213,7 @@ namespace detail
     // catch all that doesn't match the various function signatures above
     // If T has an operator(), we go with that. Else, issue error message.
     template <typename T, typename... OverloadArgs>
-    struct invocable_traits_impl : invocable_traits_extract<T, HasSpecificCallOperator<T, OverloadArgs...>, OverloadArgs...> {};
+    struct invocable_traits_impl : invocable_traits_extract<T, HasCallOperator<T> && HasSpecificCallOperator<T, OverloadArgs...>, OverloadArgs...> {};
     template <typename T>
     struct invocable_traits_impl<T> : invocable_traits_extract<T, HasCallOperator<T> && CanGetCallOperator<T>> {};
 }
