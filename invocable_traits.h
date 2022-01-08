@@ -61,62 +61,49 @@ namespace detail
 
     #define IS_NONEMPTY(...) 0 __VA_OPT__(+1)
 
-    #define INVOCABLE_TRAITS_SPEC(c,v,...)                                              \
+    #define INVOCABLE_TRAITS_SPEC(c,v,e,...)                                            \
     /* functions, including noexcept versions */                                        \
     template <typename R, typename... Args>                                             \
-    struct invocable_traits_impl<R(Args... __VA_OPT__(,) __VA_ARGS__) c v>              \
+    struct invocable_traits_impl<R(Args... __VA_OPT__(,) __VA_ARGS__) c v e>            \
         : public invocable_traits_free<                                                 \
             R,                                                                          \
-            std::invoke_result_t<R(Args... __VA_OPT__(,) __VA_ARGS__) c v,Args...>,     \
+            std::invoke_result_t<R(Args... __VA_OPT__(,) __VA_ARGS__) c v e,Args...>,   \
             IS_NONEMPTY(c),                                                             \
             IS_NONEMPTY(v),                                                             \
-            false,                                                                      \
-            IS_NONEMPTY(__VA_ARGS__),                                                   \
-            Args...> {};                                                                \
-    template <typename R, typename... Args>                                             \
-    struct invocable_traits_impl<R(Args...__VA_OPT__(,) __VA_ARGS__) c v noexcept>      \
-        : public invocable_traits_free<                                                 \
-            R,                                                                          \
-            std::invoke_result_t<R(Args... __VA_OPT__(,) __VA_ARGS__) c v noexcept,Args...>,\
-            IS_NONEMPTY(c),                                                             \
-            IS_NONEMPTY(v),                                                             \
-            true,                                                                       \
+            IS_NONEMPTY(e),                                                             \
             IS_NONEMPTY(__VA_ARGS__),                                                   \
             Args...> {};                                                                \
     /* pointers to member functions, including noexcept versions) */                    \
     template <typename C, typename R, typename... Args>                                 \
-    struct invocable_traits_impl<R(C::*)(Args...__VA_OPT__(,) __VA_ARGS__) c v>         \
+    struct invocable_traits_impl<R(C::*)(Args...__VA_OPT__(,) __VA_ARGS__) c v e>       \
         : public invocable_traits_class<                                                \
             R,                                                                          \
-            std::invoke_result_t<R(C::*)(Args...__VA_OPT__(,) __VA_ARGS__) c v,C,Args...>,  \
+            std::invoke_result_t<R(C::*)(Args...__VA_OPT__(,) __VA_ARGS__) c v e,C,Args...>,  \
             C,                                                                          \
             IS_NONEMPTY(c),                                                             \
             IS_NONEMPTY(v),                                                             \
-            false,                                                                      \
-            IS_NONEMPTY(__VA_ARGS__),                                                   \
-            Args...> {};                                                                \
-    template <typename C, typename R, typename... Args>                                 \
-    struct invocable_traits_impl<R(C::*)(Args...__VA_OPT__(,) __VA_ARGS__) c v noexcept>\
-        : public invocable_traits_class<                                                \
-            R,                                                                          \
-            std::invoke_result_t<R(C::*)(Args...__VA_OPT__(,) __VA_ARGS__) c v noexcept,C,Args...>,  \
-            C,                                                                          \
-            IS_NONEMPTY(c),                                                             \
-            IS_NONEMPTY(v),                                                             \
-            true,                                                                       \
+            IS_NONEMPTY(e),                                                             \
             IS_NONEMPTY(__VA_ARGS__),                                                   \
             Args...> {};
 
-    // cover all const and volatile permutations
-    INVOCABLE_TRAITS_SPEC(,, )
-    INVOCABLE_TRAITS_SPEC(const,, )
-    INVOCABLE_TRAITS_SPEC(,volatile, )
-    INVOCABLE_TRAITS_SPEC(const, volatile, )
+    // cover all const, volatile and noexcept permutations
+    INVOCABLE_TRAITS_SPEC(,,, )
+    INVOCABLE_TRAITS_SPEC(const,,, )
+    INVOCABLE_TRAITS_SPEC(, volatile,, )
+    INVOCABLE_TRAITS_SPEC(const, volatile,, )
+    INVOCABLE_TRAITS_SPEC(,, noexcept, )
+    INVOCABLE_TRAITS_SPEC(const, , noexcept, )
+    INVOCABLE_TRAITS_SPEC(, volatile, noexcept, )
+    INVOCABLE_TRAITS_SPEC(const, volatile, noexcept )
     // and also variadic function versions
-    INVOCABLE_TRAITS_SPEC(,, ...)
-    INVOCABLE_TRAITS_SPEC(const,, ...)
-    INVOCABLE_TRAITS_SPEC(,volatile, ...)
-    INVOCABLE_TRAITS_SPEC(const, volatile, ...)
+    INVOCABLE_TRAITS_SPEC(,,, ...)
+    INVOCABLE_TRAITS_SPEC(const,,, ...)
+    INVOCABLE_TRAITS_SPEC(,volatile,, ...)
+    INVOCABLE_TRAITS_SPEC(const, volatile,, ...)
+    INVOCABLE_TRAITS_SPEC(,, noexcept, ...)
+    INVOCABLE_TRAITS_SPEC(const,, noexcept, ...)
+    INVOCABLE_TRAITS_SPEC(,volatile, noexcept, ...)
+    INVOCABLE_TRAITS_SPEC(const, volatile, noexcept, ...)
     // clean up
     #undef INVOCABLE_TRAITS_SPEC
     #undef IS_NONEMPTY
