@@ -28,8 +28,8 @@
 //                    the callable (e.g. use arg_t<0> to retrieve the
 //                    first argument type)
 //
-// When the user has provided argument types (see below), three additional
-// properties are exposed:
+// When the user has provided argument types and they are used (see below),
+// three additional properties are exposed:
 // num_matched_overloads : number of overloads found that matched the
 //                         user's provided argument types.
 // is_exact_match        : true if the user-provided argument types
@@ -52,9 +52,20 @@
 // To handle overloaded or templated operator() of functors (this includes
 // lambdas), you can help invocable_traits find the right overload by
 // providing additional type arguments, e.g., invocable_traits<Functor, int>.
-// These extra type arguments are used to resolve the desired overload. When
-// resolving the overload using these extra type arguments, two things may
-// happen:
+// If required for disambiguation (i.e. if the passed callable is indeed a
+// functor with an overloaded or templated operator()), these extra type
+// arguments are used to resolve the desired overload. If the additional type
+// arguments are not required to resolve the overload, or a callable other
+// than a functor is passed, the additional type arguments are ignored. It is
+// thus not an error to provide the additional type arguments (e.g. if you
+// know what input arguments your callable should take), but the callable
+// will not be checked for a matching signature unless the additional type
+// arguments were required for overload resolution/template instantiation.
+// Use of std::is_invocable<> is therefore adviced in all cases where you
+// provide additional type arguments to invocable_traits.
+// 
+// When resolving the overload using these extra type arguments, two things
+// may happen:
 // 1. the user provides the exact argument types (including const and
 //    reference qualifiers) of an existing overload. In that case,
 //    invocable_traits for only that overload are returned.
@@ -67,6 +78,7 @@
 //    can also be retrieved (see propeties above).
 // When both procedures fail to yield a matching overload, a static_assert
 // is raised.
+// 
 // Note that even though std::is_invocable<> may yield true, there are
 // various situations where invocable_traits will fail to find the right
 // overload when provided with the same type arguments as
@@ -501,33 +513,43 @@ namespace detail
 
     // catch all that doesn't match the various function signatures above
     // If T has an operator(), we go with that. Else, issue error message.
-    template <typename T, typename... OverloadArgs>
-    struct invocable_traits_impl :
+    template <typename T>
+    struct invocable_traits_impl<T> :
+        invocable_traits_extract<
+            T,
+            HasCallOperator<T>&& CanGetCallOperator<T>
+        > {};
+
+    // if overload argument types are provided and needed, use them
+    template <typename T, bool B, typename... OverloadArgs>
+    struct invocable_traits_overload_impl :
         invocable_traits_extract<
             T, 
             HasCallOperator<T> && HasSpecificCallOperator<T, OverloadArgs...>,
             OverloadArgs...
         > {};
-    
-    template <typename T>
-    struct invocable_traits_impl<T> :
-        invocable_traits_extract<
-            T,
-            HasCallOperator<T> && CanGetCallOperator<T>
+
+    // if they are provided but not needed, ignore them
+    template <typename T, typename... OverloadArgs>
+    struct invocable_traits_overload_impl<T, false, OverloadArgs...> :
+        invocable_traits_impl<
+            T
         > {};
 }
 
 template <typename T, typename... OverloadArgs>
 struct invocable_traits :
-    detail::invocable_traits_impl<
+    detail::invocable_traits_overload_impl<
         std::remove_reference_t<T>,
+        detail::HasCallOperator<T> && !detail::CanGetCallOperator<T>,
         OverloadArgs...
     > {};
 
 template <typename T, typename... OverloadArgs>
 struct invocable_traits<std::reference_wrapper<T>, OverloadArgs...> :
-    detail::invocable_traits_impl<
+    detail::invocable_traits_overload_impl<
         std::remove_reference_t<T>,
+        detail::HasCallOperator<T> && !detail::CanGetCallOperator<T>,
         OverloadArgs...
     > {};
 
