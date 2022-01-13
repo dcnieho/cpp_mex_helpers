@@ -126,8 +126,6 @@ void issue_error()
         "passed type is a class that doesn't have an operator() that declares the specified argument types, or some const/ref-qualified combination of the specified argument types");
     static_assert(E != Error::Unknown,
         "an unknown error occurred");
-
-    const char a[] = "test";
 };
 
 namespace detail
