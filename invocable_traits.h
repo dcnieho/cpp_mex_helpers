@@ -27,6 +27,14 @@
 // arg_t            : indexable list of the declared argument types of
 //                    the callable (e.g. use arg_t<0> to retrieve the
 //                    first argument type)
+// error            : if an error occurs (e.g. provided type is not callable)
+//                    that is communicated through this property. You can
+//                    issue an appropriate static_assert using the following:
+//                    // example that will fail because int is not callable:
+//                    using traits = invocable_traits::get<int>;
+//                    invocable_traits::issue_error<traits::error>();
+//                    Upon error, all other properties are set to void or
+//                    false, as appropriate.
 //
 // When the user has provided argument types and they are used (see below),
 // three additional properties are exposed:
@@ -51,18 +59,19 @@
 // 
 // To handle overloaded or templated operator() of functors (this includes
 // lambdas), you can help invocable_traits find the right overload by
-// providing additional type arguments, e.g., invocable_traits<Functor, int>.
-// If required for disambiguation (i.e. if the passed callable is indeed a
-// functor with an overloaded or templated operator()), these extra type
-// arguments are used to resolve the desired overload. If the additional type
-// arguments are not required to resolve the overload, or a callable other
-// than a functor is passed, the additional type arguments are ignored. It is
-// thus not an error to provide the additional type arguments (e.g. if you
-// know what input arguments your callable should take), but the callable
-// will not be checked for a matching signature unless the additional type
-// arguments were required for overload resolution/template instantiation.
-// Use of std::is_invocable<> is therefore adviced in all cases where you
-// provide additional type arguments to invocable_traits.
+// providing additional type arguments, e.g.,
+// invocable_traits::get<Functor, int>. If required for disambiguation (i.e.
+// if the passed callable is indeed a functor with an overloaded or templated
+// operator()), these extra type arguments are used to resolve the desired
+// overload. If the additional type arguments are not required to resolve the
+// overload, or a callable other than a functor is passed, the additional
+// type arguments are ignored. It is thus not an error to provide the
+// additional type arguments (e.g. if you know what input arguments your
+// callable should take), but the callable will not be checked for a matching
+// signature unless the additional type arguments were required for overload
+// resolution/template instantiation. Use of std::is_invocable<> is therefore
+// adviced in all cases where you provide additional type arguments to
+// invocable_traits::get<>.
 // 
 // When resolving the overload using these extra type arguments, two things
 // may happen:
@@ -76,12 +85,12 @@
 //    If any are found, invocable_traits for the first found overload are
 //    returned, and invocable_traits for any additional matching overloads
 //    can also be retrieved (see propeties above).
-// When both procedures fail to yield a matching overload, a static_assert
-// is raised.
+// When both procedures fail to yield a matching overload, an
+// invocable_traits::error is set.
 // 
 // Note that even though std::is_invocable<> may yield true, there are
-// various situations where invocable_traits will fail to find the right
-// overload when provided with the same type arguments as
+// various situations where invocable_traits::get<> will fail to find the
+// right overload when provided with the same type arguments as
 // std::is_invocable<>. These include at least:
 // - implicit conversions of the argument type
 // - old-/C-style variadic functions
