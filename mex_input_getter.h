@@ -108,7 +108,7 @@ namespace mxTypes
         {
             if constexpr (!std::is_same_v<Converter, std::nullptr_t>)
             {
-                using ConverterInputType = std::decay_t<invocable_traits<Converter>::template arg_t<0>>;
+                using ConverterInputType = std::decay_t<invocable_traits::get<Converter>::template arg_t<0>>;
                 if constexpr (Container<OutputType>)
                 {
                     using InputContainerType = replace_specialization_type_t<OutputType, ConverterInputType>;
@@ -224,7 +224,7 @@ namespace mxTypes
             if constexpr (!std::is_same_v<Converter, std::nullptr_t>)
             {
                 // check for input data type of converter
-                using ConverterInputType = std::decay_t<invocable_traits<Converter>::template arg_t<0>>;
+                using ConverterInputType = std::decay_t<invocable_traits::get<Converter>::template arg_t<0>>;
                 if constexpr (Container<OutputType>)
                 {
                     using InputContainerType = replace_specialization_type_t<OutputType, ConverterInputType>;
@@ -312,7 +312,7 @@ namespace mxTypes
             if constexpr (!std::is_same_v<Converter, std::nullptr_t>)
             {
                 // apply converter function
-                using ConverterInputType = std::decay_t<invocable_traits<Converter>::template arg_t<0>>;
+                using ConverterInputType = std::decay_t<invocable_traits::get<Converter>::template arg_t<0>>;
                 if constexpr (is_specialization_v<ConverterInputType, std::basic_string_view>)
                     // if a string_view is the input to the converter function, get a
                     // temporary std::string instead, else we have a lifetime issue.
@@ -427,7 +427,7 @@ namespace mxTypes
         // check converter, if provided
         if constexpr (!std::is_same_v<Converter, std::nullptr_t>)
         {
-            using traits = invocable_traits<Converter>;
+            using traits = invocable_traits::get<Converter>;
             static_assert(traits::arity == 1, "A conversion function, if provided, must be unary.");
             static_assert(std::is_convertible_v<traits::invoke_result_t, UnwrappedOutputType>, "The conversion function's result type cannot be converted to the requested output type.");
         }
