@@ -428,8 +428,10 @@ namespace mxTypes
         if constexpr (!std::is_same_v<Converter, std::nullptr_t>)
         {
             using traits = invocable_traits::get<Converter>;
-            static_assert(traits::arity == 1, "A conversion function, if provided, must be unary.");
-            static_assert(std::is_convertible_v<traits::invoke_result_t, UnwrappedOutputType>, "The conversion function's result type cannot be converted to the requested output type.");
+            constexpr bool has_error = traits::error != invocable_traits::Error::None;
+            invocable_traits::issue_error<traits::error>();
+            static_assert(has_error || traits::arity == 1, "A conversion function, if provided, must be unary.");
+            static_assert(has_error || std::is_convertible_v<traits::invoke_result_t, UnwrappedOutputType>, "The conversion function's result type cannot be converted to the requested output type.");
         }
 
         // check element exists and is not empty
