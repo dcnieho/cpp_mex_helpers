@@ -92,6 +92,35 @@
 // presence of these will be deduced by invocable_traits and signalled
 // through invocable_traits::is_variadic = true).
 
+namespace invocable_traits
+{
+enum class Error
+{
+    None,
+    NotAClass,
+    NoCallOperator,
+    IsOverloadedTemplated,
+    OverloadNotResolved,
+    Unknown
+};
+
+template <Error E>
+void issue_error()
+{
+    static_assert(E != Error::NotAClass,
+        "passed type is not a class, and thus cannot have an operator()");
+    static_assert(E != Error::NoCallOperator,
+        "passed type is a class that doesn't have an operator()");
+    static_assert(E != Error::IsOverloadedTemplated,
+        "passed passed type is a class that has an overloaded or templated operator(), specify argument types in invocable_traits invocation to disambiguate the operator() signature you wish to use");
+    static_assert(E != Error::OverloadNotResolved,
+        "passed type is a class that doesn't have an operator() that declares the specified argument types, or some const/ref-qualified combination of the specified argument types");
+    static_assert(E != Error::Unknown,
+        "an unknown error occurred");
+
+    const char a[] = "test";
+};
+
 namespace detail
 {
     template <bool, std::size_t i, typename... Args>
@@ -126,6 +155,8 @@ namespace detail
 
         template <std::size_t i>
         using arg_t = typename invocable_traits_arg_impl<i < sizeof...(Args), i, Args...>::type;
+
+        static constexpr Error error      = Error::None;
     };
 
     template <
@@ -378,6 +409,21 @@ namespace detail
         using matched_overload                             = invocable_traits_error;
     };
 
+    template <typename T, bool hasOverloadArgs>
+    constexpr Error get_error()
+    {
+        if constexpr (!std::is_class_v<T>)
+            return Error::NotAClass;
+        else if constexpr (!HasCallOperator<T>)
+            return Error::NoCallOperator;
+        else if constexpr (hasOverloadArgs)
+            return Error::OverloadNotResolved;
+        else if constexpr (!hasOverloadArgs && !CanGetCallOperator<T>)
+            return Error::IsOverloadedTemplated;
+
+        return Error::Unknown;
+    }
+
     template <typename C, typename Head>
     struct get_overload_info
     {
@@ -453,9 +499,7 @@ namespace detail
         invocable_traits_error,
         invocable_traits_error_overload
     {
-        static_assert(   std::is_class_v<T>, "passed type is not a class, and thus cannot have an operator()");
-        static_assert(  !std::is_class_v<T> || HasCallOperator<T>, "passed type is a class that doesn't have an operator()");
-        static_assert(!(!std::is_class_v<T> || HasCallOperator<T>) || false, "passed type is a class that doesn't have an operator() that declares the specified argument types, or some const/ref-qualified combination of the specified argument types");
+        static constexpr Error error = get_error<T, true>();
     };
 
     // specific overloaded operator() is available, use it for analysis
@@ -506,9 +550,7 @@ namespace detail
     template <typename T>
     struct invocable_traits_extract<T, false> : invocable_traits_error
     {
-        static_assert(   std::is_class_v<T>, "passed type is not a class, and thus cannot have an operator()");
-        static_assert(  !std::is_class_v<T> || HasCallOperator<T>, "passed type is a class that doesn't have an operator()");
-        static_assert(!(!std::is_class_v<T> || HasCallOperator<T>) || CanGetCallOperator<T>, "passed type is a class that has an overloaded or templated operator(), specify argument types in invocable_traits invocation to disambiguate the operator() signature you wish to use");
+        static constexpr Error error = get_error<T, false>();
     };
 
     // catch all that doesn't match the various function signatures above
@@ -538,7 +580,7 @@ namespace detail
 }
 
 template <typename T, typename... OverloadArgs>
-struct invocable_traits :
+struct get :
     detail::invocable_traits_overload_impl<
         std::remove_reference_t<T>,
         detail::HasCallOperator<T> && !detail::CanGetCallOperator<T>,
@@ -546,7 +588,7 @@ struct invocable_traits :
     > {};
 
 template <typename T, typename... OverloadArgs>
-struct invocable_traits<std::reference_wrapper<T>, OverloadArgs...> :
+struct get<std::reference_wrapper<T>, OverloadArgs...> :
     detail::invocable_traits_overload_impl<
         std::remove_reference_t<T>,
         detail::HasCallOperator<T> && !detail::CanGetCallOperator<T>,
@@ -554,13 +596,14 @@ struct invocable_traits<std::reference_wrapper<T>, OverloadArgs...> :
     > {};
 
 template <typename T>
-struct invocable_traits<T> :
+struct get<T> :
     detail::invocable_traits_impl<
         std::decay_t<T>
     > {};
 
 template <typename T>
-struct invocable_traits<std::reference_wrapper<T>> :
+struct get<std::reference_wrapper<T>> :
     detail::invocable_traits_impl<
         std::decay_t<T>
     > {};
+}
