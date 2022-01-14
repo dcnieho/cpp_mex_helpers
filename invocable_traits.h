@@ -268,14 +268,33 @@ namespace detail
 #   undef MAKE_VARIADIC
 
     // check if passed type has an operator(), can be true for struct/class, includes lambdas
+    // from https://stackoverflow.com/a/70699109/3103767
+    // logic: test if &Tester<C>::operator() is a valid expression. It is only valid if
+    // C did not have an operator(), because else &Tester<C>::operator() would be ambiguous
+    // and thus invalid. To test if C has an operator(), we just check that
+    // &Tester<C>::operator() fails, which implies that C has an operator() declared.
+    // This trick does not work for final classes, at least detect non-overloaded
+    // operator() for those.
+    struct Fake { void operator()(); };
+    template <typename T> struct Tester : T, Fake { };
+
     template <typename C>
-    concept HasCallOperator = requires(C t)
-    {
-        t.operator();
-    };
+    concept HasCallOperator = std::is_class_v<C> and (
+        requires(C)                 // checks if non-overloaded operator() exists
+        {
+            &C::operator();
+        } or
+        not requires(Tester<C>)     // checks overloaded/templated operator(), but doesn't work on final classes
+        {
+            &Tester<C>::operator();
+        }
+    );
     // check if we can get operator().
     // If it fails (and assuming above HasCallOperator does pass),
     // this is because the operator is overloaded or templated
+    // NB: can't simply do requires(C t){ &C::operator(); } because
+    // that is too lenient on clang, also succeeds for
+    // overloaded/templated operator()
     template <typename T>
     concept CanGetCallOperator = requires
     {
@@ -566,7 +585,7 @@ namespace detail
     struct invocable_traits_impl<T> :
         invocable_traits_extract<
             T,
-            HasCallOperator<T>&& CanGetCallOperator<T>
+            HasCallOperator<T> && CanGetCallOperator<T>
         > {};
 
     // if overload argument types are provided and needed, use them
@@ -574,7 +593,7 @@ namespace detail
     struct invocable_traits_overload_impl :
         invocable_traits_extract<
             T, 
-            HasCallOperator<T> && HasSpecificCallOperator<T, OverloadArgs...>,
+            HasCallOperator<std::decay_t<T>> && HasSpecificCallOperator<T, OverloadArgs...>,
             OverloadArgs...
         > {};
 
@@ -590,7 +609,7 @@ template <typename T, typename... OverloadArgs>
 struct get :
     detail::invocable_traits_overload_impl<
         std::remove_reference_t<T>,
-        detail::HasCallOperator<T> && !detail::CanGetCallOperator<T>,
+        detail::HasCallOperator<std::decay_t<T>> && !detail::CanGetCallOperator<std::decay_t<T>>,
         OverloadArgs...
     > {};
 
@@ -598,7 +617,7 @@ template <typename T, typename... OverloadArgs>
 struct get<std::reference_wrapper<T>, OverloadArgs...> :
     detail::invocable_traits_overload_impl<
         std::remove_reference_t<T>,
-        detail::HasCallOperator<T> && !detail::CanGetCallOperator<T>,
+        detail::HasCallOperator<std::decay_t<T>> && !detail::CanGetCallOperator<std::decay_t<T>>,
         OverloadArgs...
     > {};
 
