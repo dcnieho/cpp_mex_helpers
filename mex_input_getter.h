@@ -108,7 +108,7 @@ namespace mxTypes
         {
             if constexpr (!std::is_same_v<Converter, std::nullptr_t>)
             {
-                using ConverterInputType = std::decay_t<invocable_traits::get<Converter>::template arg_t<0>>;
+                using ConverterInputType = std::decay_t<typename invocable_traits::get<Converter>::template arg_t<0>>;
                 if constexpr (Container<OutputType>)
                 {
                     using InputContainerType = replace_specialization_type_t<OutputType, ConverterInputType>;
@@ -224,7 +224,7 @@ namespace mxTypes
             if constexpr (!std::is_same_v<Converter, std::nullptr_t>)
             {
                 // check for input data type of converter
-                using ConverterInputType = std::decay_t<invocable_traits::get<Converter>::template arg_t<0>>;
+                using ConverterInputType = std::decay_t<typename invocable_traits::get<Converter>::template arg_t<0>>;
                 if constexpr (Container<OutputType>)
                 {
                     using InputContainerType = replace_specialization_type_t<OutputType, ConverterInputType>;
@@ -267,14 +267,14 @@ namespace mxTypes
                         return mxIsChar(inp_);
                     else
                     {
-                        if constexpr (typeNeedsMxCellStorage_v<OutputType::value_type>)
-                            return checkInput_impl_cell<OutputType::value_type>(inp_);
+                        if constexpr (typeNeedsMxCellStorage_v<typename OutputType::value_type>)
+                            return checkInput_impl_cell<typename OutputType::value_type>(inp_);
                         else
                         {
                             if (mxIsCell(inp_))
-                                return checkInput_impl_cell<OutputType::value_type>(inp_);
+                                return checkInput_impl_cell<typename OutputType::value_type>(inp_);
                             else
-                                return mxGetClassID(inp_) == typeToMxClass_v<OutputType::value_type>;
+                                return mxGetClassID(inp_) == typeToMxClass_v<typename OutputType::value_type>;
                         }
                     }
                 }
@@ -312,7 +312,7 @@ namespace mxTypes
             if constexpr (!std::is_same_v<Converter, std::nullptr_t>)
             {
                 // apply converter function
-                using ConverterInputType = std::decay_t<invocable_traits::get<Converter>::template arg_t<0>>;
+                using ConverterInputType = std::decay_t<typename invocable_traits::get<Converter>::template arg_t<0>>;
                 if constexpr (is_specialization_v<ConverterInputType, std::basic_string_view>)
                     // if a string_view is the input to the converter function, get a
                     // temporary std::string instead, else we have a lifetime issue.
@@ -378,7 +378,7 @@ namespace mxTypes
                                 const auto nElem = static_cast<mwIndex>(mxGetNumberOfElements(inp_));
                                 OutputType out;
                                 for (mwIndex i = 0; i < nElem; i++)
-                                    out.emplace_back(getValue<OutputType::value_type>(mxGetCell(inp_, i), nullptr));
+                                    out.emplace_back(getValue<typename OutputType::value_type>(mxGetCell(inp_, i), nullptr));
                                 return out;
                             }
                             else
@@ -431,7 +431,7 @@ namespace mxTypes
             constexpr bool has_error = traits::error != invocable_traits::Error::None;
             invocable_traits::issue_error<traits::error>();
             static_assert(has_error || traits::arity == 1, "A conversion function, if provided, must be unary.");
-            static_assert(has_error || std::is_convertible_v<traits::invoke_result_t, UnwrappedOutputType>, "The conversion function's result type cannot be converted to the requested output type.");
+            static_assert(has_error || std::is_convertible_v<typename traits::invoke_result_t, UnwrappedOutputType>, "The conversion function's result type cannot be converted to the requested output type.");
         }
 
         // check element exists and is not empty
