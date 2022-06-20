@@ -14,7 +14,9 @@ namespace mxTypes {
     template <>           struct typeToMxClass<float   > { static constexpr mxClassID value = mxSINGLE_CLASS; };
     template <>           struct typeToMxClass<bool    > { static constexpr mxClassID value = mxLOGICAL_CLASS; };
     template <>           struct typeToMxClass<char    > { static constexpr mxClassID value = mxCHAR_CLASS; };
+#ifndef IS_OCTAVE
     template <>           struct typeToMxClass<mxChar  > { static constexpr mxClassID value = mxCHAR_CLASS; };
+#endif
     template <>           struct typeToMxClass<uint64_t> { static constexpr mxClassID value = mxUINT64_CLASS; };
     template <>           struct typeToMxClass<int64_t > { static constexpr mxClassID value = mxINT64_CLASS; };
     template <>           struct typeToMxClass<uint32_t> { static constexpr mxClassID value = mxUINT32_CLASS; };
