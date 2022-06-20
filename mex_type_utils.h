@@ -71,6 +71,8 @@ namespace mxTypes {
             using type = uint8_t;
         else if constexpr (T == mxINT8_CLASS)
             using type = int8_t;
+
+        return mxUNKNOWN_CLASS; // to make some compilers happy, return value is not to be used.
     }
 
     template <mxClassID T>
