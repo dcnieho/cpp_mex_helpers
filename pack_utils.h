@@ -23,7 +23,7 @@ template <typename F, typename... Ts>
 constexpr auto rotate_right(F f, Ts... ts)
 {
     auto tuple = std::make_tuple(ts...);
-    return indices<sizeof...(Ts) - 1>([&tuple](auto... Is) constexpr    // pass elements 1 to N-1 as input to lambda
+    return indices<sizeof...(Ts) - 1>([&f, &tuple](auto... Is) constexpr// pass elements 1 to N-1 as input to lambda
     {
         return f(												        // call user's function with:
                     std::get<sizeof...(Ts) - 1>(tuple),			        // last element of tuple
@@ -35,7 +35,7 @@ template <typename F, typename... Ts>
 constexpr auto rotate_right_except_last(F f, Ts... ts)
 {
     auto tuple = std::make_tuple(ts...);
-    return indices<sizeof...(Ts) - 2>([&tuple](auto... Is) constexpr    // pass elements 1 to N-2 as input to lambda
+    return indices<sizeof...(Ts) - 2>([&f, &tuple](auto... Is) constexpr// pass elements 1 to N-2 as input to lambda
     {
         return f(												        // call user's function with:
                     std::get<sizeof...(Ts) - 2>(tuple),			        // element N-1
@@ -48,7 +48,7 @@ constexpr auto rotate_right_except_last(F f, Ts... ts)
 template <typename F, typename... Ts>
 constexpr auto drop_last(F f, Ts... ts)
 {
-    return indices<sizeof...(Ts) - 1>([&ts](auto... Is) constexpr
+    return indices<sizeof...(Ts) - 1>([&f, &ts...](auto... Is) constexpr
     {
         auto tuple = std::make_tuple(ts...);
         return f(std::get<Is>(tuple)...);
