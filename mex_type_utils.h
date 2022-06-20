@@ -328,7 +328,7 @@ namespace mxTypes {
 
     // generic ToMatlab that converts provided data through type tag dispatch
     template <class T, class U>
-    requires !Container<T>
+    requires (!Container<T>)
     mxArray* ToMatlab(T val_, U)
     {
         return ToMatlab(static_cast<U>(val_));
