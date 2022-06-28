@@ -303,7 +303,7 @@ namespace mxTypes
             if constexpr (is_specialization_v<TP<Args...>, std::tuple>)
                 return std::make_tuple(getValue<Args>(mxGetCell(inp_, iRow_ + (Is)*nRow_), nullptr) ...);
             else
-                return std::make_pair(getValue<Args>(mxGetCell(inp_, iRow_ + (Is)*nRow_), nullptr) ...);
+                return std::make_pair (getValue<Args>(mxGetCell(inp_, iRow_ + (Is)*nRow_), nullptr) ...);
         }
 
         template <typename OutputType, typename Converter>

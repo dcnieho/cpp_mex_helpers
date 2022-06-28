@@ -400,14 +400,14 @@ namespace mxTypes {
     // default output is storage type corresponding to the type of the member variable accessed through this function, but it can be overridden through type tag dispatch (see getFieldWrapper implementation)
     template<typename Cont, typename... Fs>
     requires Container<Cont>
-    mxArray* FieldToMatlab(const Cont& data_, bool columnVector_, Fs... fields)
+    mxArray* FieldToMatlab(const Cont& data_, bool rowVector_, Fs... fields)
     {
         mxArray* temp;
         using V = typename Cont::value_type;
         using U = decltype(getFieldWrapper(std::declval<V>(), fields...));
         mwSize rCount = static_cast<mwSize>(data_.size());
         mwSize cCount = 1;
-        if (columnVector_)
+        if (rowVector_)
             std::swap(rCount, cCount);
 
         if constexpr (typeNeedsMxCellStorage_v<U>)
