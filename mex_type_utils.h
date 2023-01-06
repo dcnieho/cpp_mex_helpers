@@ -5,6 +5,7 @@
 #include "mex_type_utils_fwd.h"
 #include "pack_utils.h"
 #include "always_false.h"
+#include "get_field_nested.h"
 
 
 namespace mxTypes {
@@ -292,7 +293,7 @@ namespace mxTypes {
     mxArray* ToMatlab(Cont<Args...> data_)
     {
         mxArray* storage = mxCreateCellMatrix(1, static_cast<mwSize>(data_.size()));
-        
+
         for (mwIndex i = 0; auto && item: data_)
         {
             mxSetCell(storage, i, ToMatlab(item));
@@ -341,62 +342,6 @@ namespace mxTypes {
 
     //// struct of arrays
     // machinery to turn a container of objects into a single struct with an array per object field
-    // get field indicated by list of pointers-to-member-variable in fields
-    template <typename O, typename T, typename... Os, typename... Ts>
-    constexpr auto getField(const O& obj, T O::* field1, Ts Os::*... fields)
-    {
-        if constexpr (!sizeof...(fields))
-            return obj.*field1;
-        else
-            return getField(obj.*field1, fields...);
-    }
-
-    // get field indicated by list of pointers-to-member-variable in fields, process return value by either:
-    // 1. transform by applying callable; or
-    // 2. cast return value to user specified type
-    template <typename Obj, typename OutOrFun, typename... Fs, typename... Ts>
-    constexpr auto getField(const Obj& obj, OutOrFun o, Ts Fs::*... fields)
-    {
-        if constexpr (std::is_invocable_v<OutOrFun, last<0, Obj, Ts...>>)
-            return std::invoke(o, getField(obj, fields...));
-        else
-            return static_cast<OutOrFun>(getField(obj, fields...));
-    }
-
-    template <typename Obj, typename... Fs>
-    constexpr auto getFieldWrapper(const Obj& obj, Fs... fields)
-    {
-        // if last is pointer-to-member-variable, but previous is not (this would be a type tag then), swap the last two to put the type tag last
-        if      constexpr (sizeof...(Fs) > 1 && std::is_member_object_pointer_v<last<0, Obj, Fs...>> && !std::is_member_object_pointer_v<last<1, Obj, Fs...>>)
-            return rotate_right_except_last(
-                [&obj](auto... elems) constexpr
-                {
-                    return getField(obj, elems...);
-                }, fields...);
-        // if last is pointer-to-member-variable, no casting of return value requested through type tag, call getField
-        else if constexpr (std::is_member_object_pointer_v<last<0, Obj, Fs...>>)
-            return getField(obj, fields...);
-        // if last is an enum, compare the value of the field to it
-        // this turns enum fields into a boolean given reference enum value for which true should be returned
-        else if constexpr (std::is_enum_v<last<0, Obj, Fs...>>)
-        {
-            auto tuple = std::make_tuple(fields...);
-            return drop_last(
-            [&obj](auto... elems) constexpr
-            {
-                return getField(obj, elems...);
-            }, fields...) == std::get<sizeof...(Fs) - 1>(tuple);
-        }
-        else
-            // if last is not pointer-to-member-variable, call getField with correct order of arguments
-            // last is type to cast return value to, or lambda to apply to return value
-            return rotate_right(
-            [&obj](auto... elems) constexpr
-            {
-                return getField(obj, elems...);
-            }, fields...);
-    }
-
     // default output is storage type corresponding to the type of the member variable accessed through this function, but it can be overridden through type tag dispatch (see getFieldWrapper implementation)
     template<typename Cont, typename... Fs>
     requires Container<Cont>
@@ -404,7 +349,7 @@ namespace mxTypes {
     {
         mxArray* temp;
         using V = typename Cont::value_type;
-        using U = decltype(getFieldWrapper(std::declval<V>(), fields...));
+        using U = decltype(nested_field::getWrapper(std::declval<V>(), fields...));
         mwSize rCount = static_cast<mwSize>(data_.size());
         mwSize cCount = 1;
         if (rowVector_)
@@ -418,7 +363,7 @@ namespace mxTypes {
             if constexpr (!typeDumpVectorOneAtATime_v<V>)
             {
                 for (auto&& item : data_)
-                    mxSetCell(temp, i++, ToMatlab(getFieldWrapper(item, fields...)));
+                    mxSetCell(temp, i++, ToMatlab(nested_field::getWrapper(item, fields...)));
             }
             else
             {
@@ -426,7 +371,7 @@ namespace mxTypes {
                 i = static_cast<mwSize>(data_.size());
                 for (auto rit = std::rbegin(data_); rit != std::rend(data_); )
                 {
-                    mxSetCell(temp, --i, ToMatlab(getFieldWrapper(*rit, fields...)));
+                    mxSetCell(temp, --i, ToMatlab(nested_field::getWrapper(*rit, fields...)));
                     rit = decltype(rit)(data_.erase(std::next(rit).base()));
                 }
             }
@@ -442,7 +387,7 @@ namespace mxTypes {
                 if constexpr (!typeDumpVectorOneAtATime_v<V>)
                 {
                     for (auto&& item : data_)
-                        (*storage++) = getFieldWrapper(item, fields...);
+                        (*storage++) = nested_field::getWrapper(item, fields...);
                 }
                 else
                 {
@@ -450,7 +395,7 @@ namespace mxTypes {
                     storage += data_.size();
                     for (auto rit = std::rbegin(data_); rit != std::rend(data_); )
                     {
-                        (*--storage) = getFieldWrapper(*rit, fields...);
+                        (*--storage) = nested_field::getWrapper(*rit, fields...);
                         rit = decltype(rit)(data_.erase(std::next(rit).base()));
                     }
                 }

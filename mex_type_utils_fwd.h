@@ -100,19 +100,6 @@ namespace mxTypes {
 
     //// struct of arrays
     // machinery to turn a container of objects into a single struct with an array per object field
-    // get field indicated by list of pointers-to-member-variable in fields
-    template <typename O, typename T, typename... Os, typename... Ts>
-    constexpr auto getField(const O& obj, T O::* field1, Ts Os::*...fields);
-
-    // get field indicated by list of pointers-to-member-variable in fields, process return value by either:
-    // 1. transform by applying callable; or
-    // 2. cast return value to user specified type
-    template <typename Obj, typename OutOrFun, typename... Fs, typename... Ts>
-    constexpr auto getField(const Obj& obj, OutOrFun o, Ts Fs::*...fields);
-
-    template <typename Obj, typename... Fs>
-    constexpr auto getFieldWrapper(const Obj& obj, Fs... fields);
-
     // default output is storage type corresponding to the type of the member variable accessed through this function, but it can be overridden through type tag dispatch (see getFieldWrapper implementation)
     template<typename Cont, typename... Fs>
     requires Container<Cont>
