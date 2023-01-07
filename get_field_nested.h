@@ -1,6 +1,7 @@
 #pragma once
 #include <type_traits>
 #include <tuple>
+#include <functional>
 
 #include "pack_utils.h"
 
