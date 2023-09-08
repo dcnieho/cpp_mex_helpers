@@ -27,12 +27,18 @@ namespace mxTypes {
     //// functionality to convert C++ types to MATLAB ClassIDs and back
     template <typename T>
     struct typeToMxClass;
+    template <typename T>
+    inline constexpr mxClassID typeToMxClass_v = typeToMxClass<T>::value;
 
     template <typename T>
     struct typeNeedsMxCellStorage;
+    template <typename T>
+    inline constexpr bool typeNeedsMxCellStorage_v = typeNeedsMxCellStorage<T>::value;
 
     template <typename T>
     struct typeDumpVectorOneAtATime;
+    template <typename T>
+    inline constexpr bool typeDumpVectorOneAtATime_v = typeDumpVectorOneAtATime<T>::value;
 
     template <mxClassID T>
     constexpr mxClassID MxClassToType();

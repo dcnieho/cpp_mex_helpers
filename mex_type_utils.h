@@ -26,24 +26,18 @@ namespace mxTypes {
     template <>           struct typeToMxClass<int16_t > { static constexpr mxClassID value = mxINT16_CLASS; };
     template <>           struct typeToMxClass<uint8_t > { static constexpr mxClassID value = mxUINT8_CLASS; };
     template <>           struct typeToMxClass<int8_t  > { static constexpr mxClassID value = mxINT8_CLASS; };
-    template <typename T>
-    constexpr mxClassID typeToMxClass_v = typeToMxClass<T>::value;
 
     template <typename T>
     struct typeNeedsMxCellStorage
     {
         static constexpr bool value = !std::is_arithmetic_v<T>; // std::is_arithmetic_v is true for integrals and floating point, and bool is included in integral
     };
-    template <typename T>
-    constexpr bool typeNeedsMxCellStorage_v = typeNeedsMxCellStorage<T>::value;
 
     template <typename T>
     struct typeDumpVectorOneAtATime
     {
         static constexpr bool value = false;
     };
-    template <typename T>
-    constexpr bool typeDumpVectorOneAtATime_v = typeDumpVectorOneAtATime<T>::value;
 
     template <mxClassID T>
     constexpr mxClassID MxClassToType()
