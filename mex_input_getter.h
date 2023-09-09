@@ -19,20 +19,20 @@ namespace mxTypes
 {
     namespace detail
     {
-        std::string NumberToOrdinal(size_t number)
+        inline std::string NumberToOrdinal(size_t number)
         {
             std::string suffix = "th";
             if (number % 100 < 11 || number % 100 > 13) {
                 switch (number % 10) {
-                case 1:
-                    suffix = "st";
-                    break;
-                case 2:
-                    suffix = "nd";
-                    break;
-                case 3:
-                    suffix = "rd";
-                    break;
+                    case 1:
+                        suffix = "st";
+                        break;
+                    case 2:
+                        suffix = "nd";
+                        break;
+                    case 3:
+                        suffix = "rd";
+                        break;
                 }
             }
             return std::to_string(number) + suffix;
@@ -162,7 +162,7 @@ namespace mxTypes
 
             // now say what the argument instead contained (and some special cases like
             // not enough arguments provided or empty argument)
-            if (idx_ >= nrhs_)
+            if (idx_ >= static_cast<unsigned int>(nrhs_))
                 out += "Not enough input arguments. Only " + std::to_string(nrhs_ - offset_) + " were provided.";
             else if(mxIsEmpty(prhs_[idx_]))
                 out += "The provided input argument was empty.";
@@ -412,7 +412,7 @@ namespace mxTypes
     requires is_specialization_v<T, std::optional>
     struct unwrapOptional<T>
     {
-        using type = T::value_type;
+        using type = typename T::value_type;
     };
 
     // for optional input arguments, use std::optional<T> as return type,
@@ -422,20 +422,20 @@ namespace mxTypes
     {
         // unwrap std::optional to get at desired type
         bool constexpr outputIsOptional = is_specialization_v<OutputType, std::optional>;
-        using UnwrappedOutputType = unwrapOptional<OutputType>::type;
+        using UnwrappedOutputType = typename unwrapOptional<OutputType>::type;
 
         // check converter, if provided
         if constexpr (!std::is_same_v<Converter, std::nullptr_t>)
         {
             using traits = invocable_traits::get<Converter>;
-            constexpr bool has_error = traits::error != invocable_traits::Error::None;
+            constexpr bool hasError = traits::error != invocable_traits::Error::None;
             invocable_traits::issue_error<traits::error>();
-            static_assert(has_error || traits::arity == 1, "A conversion function, if provided, must be unary.");
-            static_assert(has_error || std::is_convertible_v<typename traits::invoke_result_t, UnwrappedOutputType>, "The conversion function's result type cannot be converted to the requested output type.");
+            static_assert(hasError || traits::arity == 1, "A conversion function, if provided, must be unary.");
+            static_assert(hasError || std::is_convertible_v<typename traits::invoke_result_t, UnwrappedOutputType>, "The conversion function's result type cannot be converted to the requested output type.");
         }
 
         // check element exists and is not empty
-        bool haveElement = idx_ < nrhs && !mxIsEmpty(prhs[idx_]);
+        const bool haveElement = idx_ < static_cast<unsigned int>(nrhs) && !mxIsEmpty(prhs[idx_]);
         if constexpr (outputIsOptional)
             if (!haveElement)
                 return std::nullopt;
