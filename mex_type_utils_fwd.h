@@ -48,7 +48,7 @@ namespace mxTypes {
 
     //// converters of generic data types to MATLAB variables
     //// to simple variables
-    mxArray* ToMatlab(std::string str_);
+    inline mxArray* ToMatlab(std::string str_);
 
     template<class T>
     requires std::is_arithmetic_v<T>
@@ -57,6 +57,7 @@ namespace mxTypes {
     template<class Cont, typename... Extras>
     requires Container<Cont>
     mxArray* ToMatlab(Cont data_, Extras&& ...extras_);
+    inline mxArray* ToMatlab(std::monostate);
     template <class... Types>  mxArray* ToMatlab(std::variant<Types...> val_);
     template <class T>         mxArray* ToMatlab(std::optional<T> val_);
     template <class T>         mxArray* ToMatlab(std::shared_ptr<T> val_);

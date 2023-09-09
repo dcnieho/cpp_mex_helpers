@@ -115,7 +115,7 @@ namespace mxTypes {
 
     //// converters of generic data types to MATLAB variables
     //// to simple variables
-    mxArray* ToMatlab(std::string str_)
+    inline mxArray* ToMatlab(std::string str_)
     {
         return mxCreateString(str_.c_str());
     }
@@ -221,7 +221,7 @@ namespace mxTypes {
         return temp;
     }
 
-    mxArray* ToMatlab(std::monostate)
+    inline mxArray* ToMatlab(std::monostate)
     {
         return mxCreateDoubleMatrix(0, 0, mxREAL);
     }
