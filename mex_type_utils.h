@@ -159,7 +159,7 @@ namespace mxTypes {
         {
             // output array
             static_assert(sizeof...(Extras) < 2, "Only 0 (normal case) or 1 (type tag dispatch) extra arguments to ToMatlab() are supported for this branch.");
-            using outputType = typename std::tuple_element<0, std::tuple<Extras..., V>>::type;  // if Extras... is an empty pack, V is output, else first type in Extras...
+            using outputType = std::tuple_element_t<0, std::tuple<Extras..., V>>;  // if Extras... is an empty pack, V is output, else first type in Extras...
             auto storage = static_cast<outputType*>(mxGetData(temp = mxCreateUninitNumericMatrix(static_cast<mwSize>(data_.size()), 1, typeToMxClass_v<outputType>, mxREAL)));
 
             if (!data_.empty())
@@ -196,7 +196,7 @@ namespace mxTypes {
             mwIndex i = 0;
             if (data_.empty())
                 if constexpr (std::is_default_constructible_v<V>)   // try hard to produce struct with empty fields
-                    temp = ToMatlab(V{}, i++, 0, temp, std::forward<Extras>(extras_)...);
+                    temp = ToMatlab(V{}, 0, 0, temp, std::forward<Extras>(extras_)...);
                 else    // fall back to just empty
                     temp = mxCreateDoubleMatrix(0, 0, mxREAL);
             else
@@ -227,7 +227,7 @@ namespace mxTypes {
     template <class... Types>
     mxArray* ToMatlab(std::variant<Types...> val_)
     {
-        return std::visit([](auto& a) {return ToMatlab(a); }, val_);
+        return std::visit([](auto& a_) {return ToMatlab(a_); }, val_);
     }
 
     template <class T>
@@ -316,7 +316,7 @@ namespace mxTypes {
         for (mwIndex i = 0; auto&& item: data_)
         {
             mwIndex j = 0; // column index
-            std::apply([&](auto&&... args) {(mxSetCell(storage, i + (j++)*nRow, ToMatlab(args)), ...); }, item);
+            std::apply([&](auto&&... args_) {(mxSetCell(storage, i + (j++)*nRow, ToMatlab(args_)), ...); }, item);
             ++i; // next row
         }
 
@@ -337,12 +337,12 @@ namespace mxTypes {
     // default output is storage type corresponding to the type of the member variable accessed through this function, but it can be overridden through type tag dispatch (see getFieldWrapper implementation)
     template<typename Cont, typename... Fs>
     requires Container<Cont>
-    mxArray* FieldToMatlab(const Cont& data_, bool rowVector_, Fs... fields_)
+    mxArray* FieldToMatlab(const Cont& data_, const bool rowVector_, Fs... fields_)
     {
         mxArray* temp;
         using V = typename Cont::value_type;
         using U = decltype(nested_field::getWrapper(std::declval<V>(), fields_...));
-        mwSize rCount = static_cast<mwSize>(data_.size());
+        auto   rCount = static_cast<mwSize>(data_.size());
         mwSize cCount = 1;
         if (rowVector_)
             std::swap(rCount, cCount);
