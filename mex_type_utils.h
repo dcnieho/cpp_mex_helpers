@@ -339,11 +339,11 @@ namespace mxTypes {
     // default output is storage type corresponding to the type of the member variable accessed through this function, but it can be overridden through type tag dispatch (see getFieldWrapper implementation)
     template<typename Cont, typename... Fs>
     requires Container<Cont>
-    mxArray* FieldToMatlab(const Cont& data_, bool rowVector_, Fs... fields)
+    mxArray* FieldToMatlab(const Cont& data_, bool rowVector_, Fs... fields_)
     {
         mxArray* temp;
         using V = typename Cont::value_type;
-        using U = decltype(nested_field::getWrapper(std::declval<V>(), fields...));
+        using U = decltype(nested_field::getWrapper(std::declval<V>(), fields_...));
         mwSize rCount = static_cast<mwSize>(data_.size());
         mwSize cCount = 1;
         if (rowVector_)
@@ -357,7 +357,7 @@ namespace mxTypes {
             if constexpr (!typeDumpVectorOneAtATime_v<V>)
             {
                 for (auto&& item : data_)
-                    mxSetCell(temp, i++, ToMatlab(nested_field::getWrapper(item, fields...)));
+                    mxSetCell(temp, i++, ToMatlab(nested_field::getWrapper(item, fields_...)));
             }
             else
             {
@@ -365,7 +365,7 @@ namespace mxTypes {
                 i = static_cast<mwSize>(data_.size());
                 for (auto rit = std::rbegin(data_); rit != std::rend(data_); )
                 {
-                    mxSetCell(temp, --i, ToMatlab(nested_field::getWrapper(*rit, fields...)));
+                    mxSetCell(temp, --i, ToMatlab(nested_field::getWrapper(*rit, fields_...)));
                     rit = decltype(rit)(data_.erase(std::next(rit).base()));
                 }
             }
@@ -381,7 +381,7 @@ namespace mxTypes {
                 if constexpr (!typeDumpVectorOneAtATime_v<V>)
                 {
                     for (auto&& item : data_)
-                        (*storage++) = nested_field::getWrapper(item, fields...);
+                        (*storage++) = nested_field::getWrapper(item, fields_...);
                 }
                 else
                 {
@@ -389,7 +389,7 @@ namespace mxTypes {
                     storage += data_.size();
                     for (auto rit = std::rbegin(data_); rit != std::rend(data_); )
                     {
-                        (*--storage) = nested_field::getWrapper(*rit, fields...);
+                        (*--storage) = nested_field::getWrapper(*rit, fields_...);
                         rit = decltype(rit)(data_.erase(std::next(rit).base()));
                     }
                 }
