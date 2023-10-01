@@ -5,6 +5,9 @@
 #include "always_false.h"
 #include "get_field_nested.h"
 
+#ifndef MEX_TYPE_UTILS_OUTPUT_ROWVECTORS
+#   define MEX_TYPE_UTILS_OUTPUT_ROWVECTORS false
+#endif
 
 namespace mxTypes {
     //// functionality to convert C++ types to MATLAB ClassIDs and back
@@ -134,10 +137,16 @@ namespace mxTypes {
     {
         mxArray* temp = nullptr;
         using V = typename Cont::value_type;
+        auto    nElem = static_cast<mwSize>(data_.size());
+        auto   rCount = nElem;
+        mwSize cCount = 1;
+        if (MEX_TYPE_UTILS_OUTPUT_ROWVECTORS)
+            std::swap(rCount, cCount);
+
         if constexpr (typeNeedsMxCellStorage_v<V>)
         {
             // output cell array
-            temp = mxCreateCellMatrix(static_cast<mwSize>(data_.size()), 1);
+            temp = mxCreateCellMatrix(rCount, cCount);
             mwIndex i = 0;
             if constexpr (!typeDumpVectorOneAtATime_v<V>)
             {
@@ -160,7 +169,7 @@ namespace mxTypes {
             // output array
             static_assert(sizeof...(Extras) < 2, "Only 0 (normal case) or 1 (type tag dispatch) extra arguments to ToMatlab() are supported for this branch.");
             using outputType = std::tuple_element_t<0, std::tuple<Extras..., V>>;  // if Extras... is an empty pack, V is output, else first type in Extras...
-            auto storage = static_cast<outputType*>(mxGetData(temp = mxCreateUninitNumericMatrix(static_cast<mwSize>(data_.size()), 1, typeToMxClass_v<outputType>, mxREAL)));
+            auto storage = static_cast<outputType*>(mxGetData(temp = mxCreateUninitNumericMatrix(rCount, cCount, typeToMxClass_v<outputType>, mxREAL)));
 
             if (!data_.empty())
             {
@@ -193,25 +202,25 @@ namespace mxTypes {
         else // NB: if constexpr (typeToMxClass_v<V> == mxSTRUCT_CLASS)
         {
             // output array of structs
-            mwIndex i = 0;
             if (data_.empty())
                 if constexpr (std::is_default_constructible_v<V>)   // try hard to produce struct with empty fields
-                    temp = ToMatlab(V{}, 0, 0, temp, std::forward<Extras>(extras_)...);
+                    temp = ToMatlab(V{}, 0, rCount, cCount, temp, std::forward<Extras>(extras_)...);
                 else    // fall back to just empty
-                    temp = mxCreateDoubleMatrix(0, 0, mxREAL);
+                    temp = mxCreateDoubleMatrix(rCount, cCount, mxREAL);
             else
                 if constexpr (!typeDumpVectorOneAtATime_v<V>)
                 {
+                    mwIndex i = 0;
                     for (auto&& item : data_)
-                        temp = ToMatlab(item, i++, static_cast<mwSize>(data_.size()), temp, std::forward<Extras>(extras_)...);
+                        temp = ToMatlab(item, i++, rCount, cCount, temp, std::forward<Extras>(extras_)...);
                 }
                 else
                 {
                     // iterate backward, remove item that was just converted to matlab
-                    i = static_cast<mwSize>(data_.size());
+                    mwIndex i = nElem;
                     for (auto rit = std::rbegin(data_); rit != std::rend(data_); )
                     {
-                        temp = ToMatlab(*rit, --i, static_cast<mwSize>(data_.size()), temp, std::forward<Extras>(extras_)...);
+                        temp = ToMatlab(*rit, --i, rCount, cCount, temp, std::forward<Extras>(extras_)...);
                         rit = decltype(rit)(data_.erase(std::next(rit).base()));
                     }
                 }
@@ -284,7 +293,11 @@ namespace mxTypes {
         is_specialization_v<Cont<Args...>, std::unordered_multiset>
     mxArray* ToMatlab(Cont<Args...> data_)
     {
-        mxArray* storage = mxCreateCellMatrix(1, static_cast<mwSize>(data_.size()));
+        auto   rCount = static_cast<mwSize>(data_.size());
+        mwSize cCount = 1;
+        if (MEX_TYPE_UTILS_OUTPUT_ROWVECTORS)
+            std::swap(rCount, cCount);
+        mxArray* storage = mxCreateCellMatrix(rCount, cCount);
 
         for (mwIndex i = 0; auto && item: data_)
         {
