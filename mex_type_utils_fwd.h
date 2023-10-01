@@ -18,6 +18,12 @@
 #include "is_container_trait.h"
 #include "is_specialization_trait.h"
 
+// specify whether vectors and other containers are converted to Matlab row, or column vectors.
+// by default column vectors are used
+#ifndef MEX_TYPE_UTILS_OUTPUT_ROWVECTORS
+#   define MEX_TYPE_UTILS_OUTPUT_ROWVECTORS false
+#endif
+
 
 namespace mxTypes {
     //// functionality to convert C++ types to MATLAB ClassIDs and back

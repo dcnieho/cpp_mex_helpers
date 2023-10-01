@@ -5,10 +5,6 @@
 #include "always_false.h"
 #include "get_field_nested.h"
 
-#ifndef MEX_TYPE_UTILS_OUTPUT_ROWVECTORS
-#   define MEX_TYPE_UTILS_OUTPUT_ROWVECTORS false
-#endif
-
 namespace mxTypes {
     //// functionality to convert C++ types to MATLAB ClassIDs and back
     template <typename T> struct typeToMxClass { static_assert(always_false<T>, "typeToMxClass not implemented for this type"); static constexpr mxClassID value = mxUNKNOWN_CLASS; };
