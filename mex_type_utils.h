@@ -404,7 +404,7 @@ namespace mxTypes {
         }
         else // NB: if constexpr (typeToMxClass_v<U> == mxSTRUCT_CLASS)
         {
-            static_assert(always_false<Cont>, "Shouldn't happen, check you didn't override typeToMxClass for this type");   // or is this a TODO implement? Analyze situation when i encounter it
+            static_assert(always_false_t<Cont>, "Shouldn't happen, check you didn't override typeToMxClass for this type");   // or is this a TODO implement? Analyze situation when i encounter it
         }
 
         return temp;
